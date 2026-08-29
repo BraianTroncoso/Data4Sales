@@ -1,0 +1,51 @@
+# ═══════════════════════════════════════════════════════════════════
+# Override de DESARROLLO. No se carga solo: hay que pedirlo.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Monta el código desde el disco en vez de hornearlo en la imagen, así un
+# cambio se ve al instante y no cuesta un `composer install` + `npm ci`
+# completos. La imagen de docker-compose.yml sigue siendo la que se evalúa:
+# autocontenida, sin depender del filesystem del host.
+#
+# Requiere haber corrido una vez, en platform/:
+#   composer install && npm ci && npm run build
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  init:
+    volumes:
+      - ./platform:/var/www/html
+
+  # Sin cachear configuracion ni rutas: con el codigo montado desde el disco,
+  # el contenedor escribiria su cache dentro del proyecto del host y despues
+  # una corrida local leeria rutas generadas adentro del contenedor.
+  app:
+    environment:
+      D4S_CACHE_CONFIG: "false"
+    volumes:
+      - ./platform:/var/www/html
+
+  horizon:
+    environment:
+      D4S_CACHE_CONFIG: "false"
+    volumes:
+      - ./platform:/var/www/html
+
+  scheduler:
+    environment:
+      D4S_CACHE_CONFIG: "false"
+    volumes:
+      - ./platform:/var/www/html
+
+  nginx:
+    volumes:
+      - ./platform/public:/var/www/html/public:ro
+
+  emitter:
+    volumes:
+      - ./platform:/var/www/html
+
+  test:
+    volumes:
+      - ./platform:/var/www/html

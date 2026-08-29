@@ -1,0 +1,281 @@
+# ═══════════════════════════════════════════════════════════════════
+# Data4Sales — todo el sistema con `docker compose up`.
+#
+# Topologia:
+#
+#   postgres-shared     Plano de control (d4s_system) + plano de datos
+#                       compartido (d4s_shared, aislado por RLS).
+#   postgres-dedicated  Plano de datos de los tenants promovidos a base
+#                       propia. Mismo esquema que el compartido.
+#   redis               Colas (Horizon) y cache.
+#   init                Servicio de un solo uso. Es el UNICO que corre
+#                       con el rol dueno del esquema. Migra y seedea, y
+#                       despues se apaga.
+#   app / horizon       Runtime. Corren con el rol restringido d4s_app,
+#                       que no puede saltarse RLS ni tocar estructura.
+#   nginx               Punto de entrada HTTP.
+#   mailpit             Servidor de correo local para la Parte 3.
+#
+# La separacion de credenciales entre `init` y `app` no es cosmetica:
+# el contenedor de la aplicacion literalmente no tiene la contrasena
+# del rol dueno. Aunque alguien logre ejecucion de codigo dentro de la
+# app, no puede desactivar una politica de RLS.
+# ═══════════════════════════════════════════════════════════════════
+
+x-app-env: &app-env
+  APP_ENV: local
+  APP_DEBUG: "false"
+  APP_URL: http://localhost:8080
+
+  # Clave fija de desarrollo. En produccion vendria de un gestor de
+  # secretos y seria distinta por entorno.
+  APP_KEY: base64:UD48wtZF1tpAdZNMKU1eOGINmuDhB1NzIVSzjEXfFe0=
+
+  # Explícito a propósito. Si esta variable no estuviera acá, un .env que
+  # quedara en el directorio del proyecto podría decidir a qué base de datos
+  # habla la aplicación: config/database.php la lee con env(), y el .env
+  # gana sobre el valor por defecto del archivo de configuración.
+  DB_CONNECTION: system
+
+  # Runtime: rol restringido, sujeto a Row-Level Security.
+  DB_USERNAME: d4s_app
+  DB_PASSWORD: app_secret
+
+  DB_SYSTEM_HOST: postgres-shared
+  DB_SYSTEM_PORT: "5432"
+  DB_SYSTEM_DATABASE: d4s_system
+
+  DB_SHARED_HOST: postgres-shared
+  DB_SHARED_PORT: "5432"
+  DB_SHARED_DATABASE: d4s_shared
+
+  DB_DEDICATED_HOST: postgres-dedicated
+  DB_DEDICATED_PORT: "5432"
+
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+
+  CACHE_STORE: redis
+  SESSION_DRIVER: redis
+  QUEUE_CONNECTION: redis
+
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+
+services:
+
+  postgres-shared:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-shared-data:/var/lib/postgresql/data
+      - ./docker/postgres/shared-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    ports:
+      - "5432:5432"
+    # El healthcheck NO usa pg_isready. La imagen oficial levanta un servidor
+    # temporal para correr los scripts de /docker-entrypoint-initdb.d, y
+    # pg_isready responde que sí durante esa fase: los roles todavía no
+    # existen. El resultado es que `init` arranca demasiado pronto, se conecta
+    # con un rol inexistente y muere, dejando a los workers sin arrancar.
+    #
+    # Este chequeo prueba lo que de verdad hace falta: que el rol de la
+    # aplicación pueda conectarse a la base de la aplicación. Sólo es cierto
+    # después de que el script de inicialización terminó.
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=app_secret psql -U d4s_app -d d4s_shared -tAc 'SELECT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  postgres-dedicated:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-dedicated-data:/var/lib/postgresql/data
+      - ./docker/postgres/dedicated-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=app_secret psql -U d4s_app -d d4s_tenant_mega -tAc 'SELECT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+    environment:
+      MP_MAX_MESSAGES: "5000"
+
+  # ── Inicializacion ───────────────────────────────────────────────
+  # Unico servicio con el rol dueno del esquema. Corre una vez y sale.
+  init:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    environment:
+      <<: *app-env
+      DB_USERNAME: d4s_owner
+      DB_PASSWORD: owner_secret
+      D4S_CACHE_CONFIG: "false"
+    command: ["php", "artisan", "d4s:install", "--seed"]
+    depends_on:
+      postgres-shared:
+        condition: service_healthy
+      postgres-dedicated:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Runtime ──────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    environment: *app-env
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(0);'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  horizon:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    environment: *app-env
+    command: ["php", "artisan", "horizon"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+  # ── Planificador ─────────────────────────────────────────────────
+  # Corre las tareas de routes/console.php. Sin este servicio, el
+  # `Schedule::call(...)` del recomputo de agregados es codigo muerto:
+  # esta escrito, se ve en el repositorio, y no lo ejecuta nadie.
+  #
+  # Es la red de seguridad del recomputo. El camino normal es que la
+  # ingesta encole el trabajo al terminar el lote; esta corrida
+  # periodica cubre el caso en que ese camino falla — un worker que
+  # murio, un job que agoto reintentos, un despliegue que vacio la
+  # cola. Sin ella, un dia sucio que se pierde queda mal para siempre.
+  #
+  # `schedule:work` y no cron: un contenedor, un proceso, y el mismo
+  # comando corre igual en la maquina de quien evalua que en un
+  # orquestador.
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    environment: *app-env
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: web
+    ports:
+      - "8080:80"
+    depends_on:
+      app:
+        condition: service_started
+
+  # ── Emisor de datos ──────────────────────────────────────────────
+  # Cliente HTTP puro. No tiene credenciales de base de datos, solo una
+  # API key. Es la prueba estructural de que la API es el unico punto
+  # de entrada: aunque quisiera, este contenedor no puede escribir en
+  # Postgres. Se corre a mano, no arranca con el `up`.
+  emitter:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "false"
+      APP_KEY: base64:UD48wtZF1tpAdZNMKU1eOGINmuDhB1NzIVSzjEXfFe0=
+
+      # Con la configuración CACHEADA, a propósito. Es lo que demuestra que las
+      # credenciales se leen desde config/d4s.php y no con env() suelto: con
+      # env(), este contenedor no encontraría su API key y fallaría diciendo
+      # "no hay credencial", que apunta al lugar equivocado.
+      D4S_API_BASE_URL: http://nginx
+
+      # Las credenciales del seed son deterministas, por eso pueden estar
+      # acá. Notar lo que NO está: ni host, ni usuario, ni contraseña de
+      # PostgreSQL. Este contenedor no puede escribir en la base aunque el
+      # código para hacerlo viva en la misma imagen.
+      D4S_API_KEY_LUNA: d4s_dev_luna_8d6eebb6b52cce5e4a5c8e0711d9197fa6df1c617d151942887510a23d39ebf0
+      D4S_API_KEY_ANDES: d4s_dev_andes_821daeb5b6b9d367dc7a9dba45cc66f050a03a3aacc675e7cc31ca45250c9882
+      D4S_API_KEY_MEGA: d4s_dev_mega_e2e9b11fccd050127f975d47f3c0b215e6a58adbef8a6bee791da69383f8dc94
+    profiles: ["tools"]
+    depends_on:
+      nginx:
+        condition: service_started
+
+  # ── Suite de tests ───────────────────────────────────────────────
+  # Corre contra PostgreSQL de verdad, en bases separadas de las de
+  # desarrollo. Se ejecuta a mano: `docker compose run --rm test`.
+  # Usa el rol dueno del esquema porque necesita migrar; que el
+  # aislamiento se cumpla igual es el efecto de FORCE ROW LEVEL
+  # SECURITY, que aplica las politicas incluso al dueno de la tabla.
+  test:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: test
+    environment:
+      <<: *app-env
+      APP_ENV: testing
+      DB_USERNAME: d4s_owner
+      DB_PASSWORD: owner_secret
+      DB_SYSTEM_DATABASE: d4s_test_system
+      DB_SHARED_DATABASE: d4s_test_shared
+      D4S_CACHE_CONFIG: "false"
+      QUEUE_CONNECTION: sync
+    command: ["sh", "-c", "php artisan d4s:install && ./vendor/bin/pest"]
+    profiles: ["tools"]
+    depends_on:
+      postgres-shared:
+        condition: service_healthy
+
+volumes:
+  postgres-shared-data:
+  postgres-dedicated-data:
+  redis-data:
