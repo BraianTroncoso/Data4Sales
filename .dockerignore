@@ -1,0 +1,30 @@
+# Dependencias: se instalan dentro de la imagen, en su propia capa.
+platform/vendor
+platform/node_modules
+
+# Caches de Laravel generados en el host. Si viajaran a la imagen, el
+# contenedor arrancaria con rutas y configuracion de otra maquina.
+platform/bootstrap/cache/*.php
+
+# Artefactos de build: los produce el stage de assets.
+platform/public/build
+platform/public/hot
+platform/public/storage
+
+# Estado local que no debe viajar a la imagen. La configuracion la manda
+# el entorno del compose, no un .env copiado desde la maquina de alguien.
+platform/.env
+platform/.env.*
+platform/storage/logs/*
+platform/storage/framework/cache/data/*
+platform/storage/framework/sessions/*
+platform/storage/framework/views/*
+platform/database/*.sqlite
+
+# Repositorio y memoria de trabajo.
+.git
+.myjarbis
+.claude
+.claude-plugin
+docs
+*.md
