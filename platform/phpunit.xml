@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <!--
+            La suite corre contra PostgreSQL de verdad, no contra SQLite en
+            memoria. No es una preferencia: la mitad de las garantias que se
+            testean (Row-Level Security, indices unicos parciales, JSONB,
+            trigramas) simplemente no existen en SQLite. Testear contra otro
+            motor seria testear otro sistema.
+
+            Bases separadas de las de desarrollo, para que correr los tests
+            no pueda borrar el dataset que alguien esta mirando.
+        -->
+        <env name="DB_SYSTEM_DATABASE" value="d4s_test_system"/>
+        <env name="DB_SHARED_DATABASE" value="d4s_test_shared"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+    </php>
+</phpunit>

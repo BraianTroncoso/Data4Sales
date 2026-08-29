@@ -1,0 +1,88 @@
+%% Pipeline de ejecución de un paso de campaña.
+%% Concurrencia, reintentos y fallas explícitos.
+%% Los puntos marcados con candado son los que impiden el doble envío.
+flowchart TB
+    start(["Tick del planificador · cada 10 s por tenant con trabajo"])
+
+    subgraph concurrencia["Concurrencia · N workers Horizon en paralelo"]
+        direction TB
+        claim["CLAIM · UPDATE send_intents<br/>SET state = claimed, claim_expires_at = now + 90 s<br/>WHERE state = queued AND scheduled_for &lt;= now<br/>ORDER BY scheduled_for LIMIT 500<br/>FOR UPDATE SKIP LOCKED"]
+        lock1{"¿Ganó la fila?"}
+        skip["Otro worker la tiene · seguir de largo"]
+    end
+
+    control{"¿control_state del run<br/>sigue en running?"}
+    cancel["Marcar cancelled · no se envía"]
+
+    supr{"¿Está en suppressions<br/>o email_status no es valid?"}
+    sup["Marcar suppressed o unmailable<br/>y escribir recipient_decisions"]
+
+    vig{"¿Sigue dentro de valid_for?"}
+    exp["Marcar expired<br/>Un correo de Black Friday el lunes<br/>es peor que ningún correo"]
+
+    cuota{"Token bucket del tenant<br/>¿hay cupo por segundo y por día?"}
+    espera["Devolver a queued con<br/>scheduled_for corrido · sin consumir intento"]
+
+    breaker{"¿Circuit breaker del proveedor<br/>abierto para este tenant?"}
+    thr["Run pasa a throttled<br/>Los intents quedan en queued"]
+
+    render["RENDER · contexto inmutable de un solo cliente<br/>motor sandbox sin acceso a la conexión<br/>sello X-D4S-Recipient con HMAC del customer_id"]
+    checkhmac{"¿El sello coincide con<br/>el customer_id del intent?"}
+    rfail["render_failed · alerta<br/>Nunca se despacha un cuerpo dudoso"]
+
+    pre["Escribir state = in_flight y send_attempts ANTES de la llamada"]
+    send["POST al proveedor con Idempotency-Key<br/>= uuid v5 de run, step y customer"]
+
+    res{"Respuesta"}
+    ok["state = sent · guardar provider_message_id"]
+    tra["Error transitorio · 429, 5xx o timeout<br/>state = retry_scheduled<br/>backoff 2^n con jitter, tope 5 min"]
+    per["Error permanente 4xx<br/>state = failed"]
+    dead["El worker murió sin acuse<br/>state queda en in_flight"]
+
+    intentos{"¿attempts &lt; 5?"}
+    reaper["REAPER · cada 60 s<br/>in_flight con claim vencido pasa a unresolved<br/>NO se reintenta: podría ya haberse enviado"]
+    unres["unresolved · visible en la UI<br/>se cierra con el webhook o a las 24 h"]
+
+    hooks["Webhooks del proveedor<br/>delivered · bounce · complaint · open · click"]
+    eventos["email_events por provider_message_id<br/>hard bounce y complaint alimentan suppressions"]
+    fin(["Cierre del paso · si no quedan queued ni claimed<br/>se planifica el paso siguiente tras wait_before"])
+
+    start --> claim
+    claim --> lock1
+    lock1 -->|no| skip
+    lock1 -->|sí| control
+    control -->|"pausing o aborting"| cancel
+    control -->|running| supr
+    supr -->|sí| sup
+    supr -->|no| vig
+    vig -->|no| exp
+    vig -->|sí| cuota
+    cuota -->|"sin cupo"| espera
+    espera --> claim
+    cuota -->|"con cupo"| breaker
+    breaker -->|"abierto"| thr
+    thr --> espera
+    breaker -->|"cerrado o semiabierto"| render
+    render --> checkhmac
+    checkhmac -->|no| rfail
+    checkhmac -->|sí| pre
+    pre --> send
+    send --> res
+    res -->|2xx| ok
+    res -->|"429 o 5xx"| tra
+    res -->|"4xx definitivo"| per
+    res -->|"sin respuesta"| dead
+    tra --> intentos
+    intentos -->|sí| claim
+    intentos -->|no| per
+    dead --> reaper
+    reaper --> unres
+    ok --> hooks
+    hooks --> eventos
+    eventos --> fin
+    ok --> fin
+    per --> fin
+    sup --> fin
+    exp --> fin
+    cancel --> fin
+    unres --> fin

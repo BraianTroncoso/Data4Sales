@@ -1,0 +1,13 @@
+# ── Agent / assistant scaffolding ─────────────────────────────────
+# Tooling used while building this project. Not part of the delivery:
+# it carries local paths, session state and the confidential brief.
+.claude/
+.claude-plugin/
+.myjarbis/
+
+# ── OS / editor noise ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
