@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+        - routes
+
+    # Nivel 5: tipos de parámetros y retornos, propiedades, métodos
+    # inexistentes. Es el punto donde el análisis encuentra errores reales sin
+    # ahogarse en el tipado dinámico de Eloquent, que a niveles más altos
+    # produce sobre todo ruido sobre magia del framework.
+    level: 5
