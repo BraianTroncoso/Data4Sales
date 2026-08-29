@@ -1,0 +1,55 @@
+%% Máquina de estados de un envío, es decir de un campaign_run.
+%% Los estados de control (pausa y aborto) viven en una columna aparte
+%% porque son ortogonales al ciclo de vida: se puede pausar tanto durante
+%% la resolución como durante el despacho, y al reanudar hay que volver
+%% al estado en que se estaba, no a uno fijo.
+stateDiagram-v2
+    direction TB
+
+    [*] --> draft
+
+    draft --> scheduled : el operador programa fecha y hora
+    draft --> draft : edita condición, plantilla o pasos
+    scheduled --> draft : desprograma
+    scheduled --> resolving : llega la hora, arranca ResolveCampaignAudience
+
+    resolving --> resolve_failed : timeout de consulta o error del compilador
+    resolve_failed --> resolving : reintento manual, mismo as_of
+    resolve_failed --> aborted : el operador desiste
+
+    resolving --> empty_audience : cero destinatarios tras filtros
+    empty_audience --> [*]
+
+    resolving --> ready : audiencia congelada y contada
+    ready --> sending : se planifica el primer paso
+
+    sending --> throttled : breaker abierto o cuota diaria agotada
+    throttled --> sending : el proveedor responde o rota el día
+    sending --> waiting : todos los intents del paso resueltos y hay wait_before
+    waiting --> sending : vence la espera y se planifica el paso siguiente
+
+    sending --> paused : control_state pasa a pausing y drena la tanda
+    waiting --> paused : pausa durante la espera
+    throttled --> paused : pausa mientras espera al proveedor
+    paused --> sending : reanudar
+    paused --> aborting : abortar
+
+    sending --> aborting : abortar en curso
+    waiting --> aborting : abortar
+    aborting --> aborted : intents pendientes marcados cancelled
+    aborted --> [*]
+
+    sending --> completed : no quedan intents pendientes en ningún paso
+    completed --> [*]
+
+    note right of throttled
+        No es un fallo. Los intents siguen en queued.
+        Una caída de dos horas del proveedor deja el
+        run acá, no en failed, y no pierde destinatarios.
+    end note
+
+    note right of aborting
+        La pausa y el aborto no son instantáneos.
+        La tanda en vuelo se termina: hasta 500 mensajes
+        más pueden entregarse. La UI lo dice explícitamente.
+    end note

@@ -1,0 +1,50 @@
+%% Modo por reglas: qué dispara la evaluación, cómo entra un cliente
+%% individual y dónde exactamente se impide el reenvío por la misma causa.
+sequenceDiagram
+    autonumber
+    participant ING as Ingesta
+    participant AGG as RecomputeDirtyAggregates
+    participant Q as rule_evaluation_queue
+    participant SW as Barrido temporal por tenant
+    participant EV as Job EvaluateRulesForCustomer
+    participant C as Compilador de condiciones
+    participant DB as PostgreSQL del tenant
+    participant D as Despachador
+    participant ESP as Proveedor de correo
+
+    rect rgb(240, 244, 250)
+        Note over ING,Q: Disparador 1. Cambió el dato
+        ING->>DB: upsert de orden y marca aggregate_dirty_days
+        AGG->>DB: recomputa el día y las métricas del cliente
+        AGG->>Q: encola customer_id con reason data_change
+    end
+
+    rect rgb(245, 240, 250)
+        Note over SW,Q: Disparador 2. No cambió nada, pasó el tiempo
+        SW->>DB: lista reglas marcadas time_sensitive
+        SW->>DB: acota candidatos por la ventana de la regla
+        SW->>Q: encola esos customer_id con reason time_sweep
+    end
+
+    EV->>Q: reclama un lote con SKIP LOCKED
+    EV->>C: compila la condición acotada a esos customer_id
+    C-->>EV: predicado por cliente, evaluado en una consulta
+    EV->>DB: lee rule_memberships previa del par regla y cliente
+
+    alt No cumplía y ahora cumple. Flanco de subida
+        EV->>DB: calcula enrollment_key de la causa
+        EV->>DB: INSERT rule_memberships ON CONFLICT DO NOTHING
+        alt El INSERT insertó, es la primera vez por esta causa
+            EV->>DB: crea campaign_recipients y send_intents del paso 1
+            EV->>DB: recipient_decisions included
+            D->>DB: claim del intent
+            D->>ESP: envía contenido personalizado del cliente
+        else El INSERT no insertó, ya estuvo inscripto
+            EV->>DB: recipient_decisions excluded, reason already_enrolled
+        end
+    else Cumplía y ya no cumple. Flanco de bajada
+        EV->>DB: marca currently_in en false
+        EV->>DB: cancela send_intents futuros si la campaña tiene exit_on_unmatch
+    else Sin cambio de estado
+        EV->>DB: sólo actualiza last_evaluated_at
+    end

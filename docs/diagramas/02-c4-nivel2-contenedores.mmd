@@ -1,0 +1,63 @@
+%% C4 nivel 2 — Contenedores.
+%% Lo sombreado con el prefijo "P3" es lo que agrega la Parte 3.
+%% Todo lo demás ya existe en las Partes 1 y 2.
+flowchart TB
+    retailer["Retailer (tenant)"]
+    operador["Usuario del dashboard"]
+    esp["Proveedor de correo<br/>SES · Postmark · Mailpit"]
+
+    subgraph d4s["Data4Sales — un despliegue, dos superficies HTTP"]
+        direction TB
+
+        subgraph http["Superficies HTTP"]
+            direction LR
+            api["API pública<br/>Laravel 11 · autentica por API key<br/>ingest + query"]
+            dash["Dashboard<br/>Vue 3 + Inertia · sesión + rol"]
+            hooks["P3 · Receptor de webhooks<br/>Laravel · firma HMAC del proveedor"]
+            unsub["P3 · Endpoint de baja<br/>enlace firmado, sin PII en la URL"]
+        end
+
+        subgraph workers["Workers Horizon"]
+            direction TB
+            ingesta["Procesador de ingesta<br/>zona cruda a zona curada"]
+            agregados["Recomputo de agregados<br/>consume aggregate_dirty_days"]
+            resolutor["P3 · Resolutor de audiencias<br/>compila el DSL y congela el conjunto"]
+            evaluador["P3 · Evaluador de reglas<br/>detección de flanco por cliente"]
+            despachador["P3 · Despachador<br/>claim por lote, cuota, breaker"]
+        end
+
+        subgraph nucleo["Núcleo de dominio (PHP)"]
+            direction LR
+            dsl["P3 · Compilador de condiciones<br/>DSL JSON a SQL parametrizado"]
+            render["P3 · Renderizador<br/>motor sandbox, sin acceso a la BD"]
+            tenancy["TenantConnectionResolver<br/>único punto tenant a conexión"]
+        end
+
+        redis[("Redis<br/>colas Horizon · token buckets<br/>circuit breaker · candados")]
+        sysdb[("d4s_system · PostgreSQL<br/>tenants · api_keys · users<br/>P3: políticas de envío e identidades")]
+        shareddb[("Cluster compartido · PostgreSQL 16<br/>RLS FORCE + rol sin BYPASSRLS<br/>ventas + agregados + P3: campañas")]
+        dedidb[("Bases dedicadas · PostgreSQL 16<br/>mismo esquema, un tenant adentro")]
+    end
+
+    retailer --> api
+    operador --> dash
+    api --> ingesta
+    ingesta --> agregados
+    agregados -->|"clientes afectados"| evaluador
+    dash --> dsl
+    resolutor --> dsl
+    evaluador --> dsl
+    dsl --> tenancy
+    resolutor --> despachador
+    evaluador --> despachador
+    despachador --> render
+    despachador -->|"un mensaje por destinatario"| esp
+    esp -->|"eventos de entrega"| hooks
+    hooks --> shareddb
+    unsub --> shareddb
+    despachador --> redis
+    workers --> redis
+    tenancy --> shareddb
+    tenancy --> dedidb
+    api --> sysdb
+    despachador -->|"cuota y reputación por tenant"| sysdb

@@ -1,0 +1,56 @@
+%% Modo conjunto estático: de la definición de la condición al correo entregado
+%% y al resultado de vuelta en el sistema.
+sequenceDiagram
+    autonumber
+    actor Op as Operador del dashboard
+    participant UI as Dashboard Vue + Inertia
+    participant C as Compilador de condiciones
+    participant R as Job ResolveCampaignAudience
+    participant DB as PostgreSQL del tenant
+    participant P as Job PlanCampaignStep
+    participant D as Job DispatchChunk
+    participant RD as Renderizador sandbox
+    participant ESP as Proveedor de correo
+    participant WH as Receptor de webhooks
+
+    Op->>UI: define la condición en el editor de audiencias
+    UI->>C: valida el árbol contra el FieldRegistry
+    C-->>UI: árbol normalizado + SQL y plan estimado
+    UI->>DB: guarda audience_definitions con dsl y dsl_hash
+    Op->>UI: previsualiza con 5 clientes de muestra
+    UI->>RD: render de prueba con contexto real
+    RD-->>UI: asunto y cuerpo, marca preview, nunca despacha
+    Op->>UI: programa el envío para una fecha y hora
+    UI->>DB: crea campaign_runs en estado scheduled
+
+    Note over R,DB: A la hora programada arranca la resolución
+    R->>DB: fija as_of y copia el DSL en dsl_snapshot
+    R->>C: compila el snapshot a SQL parametrizado
+    C-->>R: una consulta, cero subconsultas correlacionadas por cliente
+    R->>DB: INSERT INTO campaign_recipients SELECT del compilado
+    R->>DB: descarta suprimidos y sin email válido
+    R->>DB: registra recipient_decisions de cada descarte
+    R-->>UI: audiencia congelada, N destinatarios
+
+    Note over P,DB: Un paso por vez. La espera es del paso, no del envío
+    P->>DB: crea send_intents del paso 1 con idempotency_key e scheduled_for
+    loop Por cada tanda de 500 intents vencidos
+        D->>DB: claim con UPDATE ... FOR UPDATE SKIP LOCKED
+        DB-->>D: intents en estado claimed
+        D->>DB: revalida supresión y control_state del run
+        D->>RD: renderiza uno por destinatario
+        RD-->>D: cuerpo con sello HMAC del customer_id
+        D->>ESP: envía con Idempotency-Key propia
+        ESP-->>D: acepta y devuelve provider_message_id
+        D->>DB: marca sent y escribe send_attempts
+    end
+
+    ESP->>WH: webhook delivered, bounce o complaint
+    WH->>DB: escribe email_events por provider_message_id
+    alt hard bounce o queja
+        WH->>DB: inserta en suppressions
+    end
+    WH-->>UI: la pantalla del run muestra entregados, rebotes y quejas
+
+    Note over P,DB: El paso 2 se planifica recién cuando vence wait_before
+    P->>DB: crea send_intents del paso 2 salvo skip_if

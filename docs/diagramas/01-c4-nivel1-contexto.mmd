@@ -1,0 +1,21 @@
+%% C4 nivel 1 — Contexto del sistema.
+%% Fuente editable. Parte 3: Motor de acciones sobre clientes.
+flowchart TB
+    retailer["Retailer (tenant)<br/>Su sistema de ventas.<br/>Empuja órdenes por la API de ingesta."]
+    operador["Usuario del dashboard<br/>Analista · Soporte · Administrador.<br/>Define audiencias y campañas."]
+    comprador["Comprador final<br/>Cliente del retailer.<br/>Recibe el correo y puede darse de baja."]
+
+    subgraph plataforma["Data4Sales"]
+        d4s["Plataforma Data4Sales<br/>Ingesta, analítica y motor de acciones.<br/>Multi-tenant: RLS en el cluster compartido,<br/>base propia para los tenants dedicados."]
+    end
+
+    esp["Proveedor de correo<br/>Amazon SES o Postmark en producción.<br/>Mailpit en el entorno local."]
+    fx["Proveedor de tasas de cambio<br/>Tabla fija en esta entrega."]
+
+    retailer -->|"POST /api/v1/ingest, API key por tenant"| d4s
+    operador -->|"HTTPS + sesión, rol dentro de su tenant"| d4s
+    d4s -->|"SMTP o API, una llamada por destinatario"| esp
+    esp -->|"correo"| comprador
+    esp -->|"webhooks: delivered, bounce, complaint, open, click"| d4s
+    comprador -->|"baja de suscripción por enlace firmado"| d4s
+    d4s -->|"tasa del día de la orden"| fx

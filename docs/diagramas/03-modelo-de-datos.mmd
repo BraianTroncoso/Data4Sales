@@ -1,0 +1,243 @@
+%% Modelo de datos del motor de acciones.
+%% Sólo se dibujan las entidades NUEVAS más los tres anclajes de la Parte 1
+%% (customers, orders, products) para mostrar dónde se engancha.
+%% Todas las tablas del plano de datos llevan tenant_id y RLS FORCE.
+erDiagram
+    customers {
+        uuid id PK
+        uuid tenant_id FK
+        text email_normalized
+        text email_status "valid, invalid o missing"
+    }
+    orders {
+        uuid id PK
+        uuid tenant_id FK
+        uuid customer_id FK
+        text status
+        date placed_on "día calendario del tenant"
+    }
+    products {
+        uuid id PK
+        uuid tenant_id FK
+        text category
+    }
+
+    customer_product_affinity {
+        uuid tenant_id FK
+        uuid customer_id FK
+        uuid product_id FK
+        text category "desnormalizada desde products"
+        date first_purchased_on
+        date last_purchased_on
+        int orders_count
+        int units
+        bigint net_reporting_minor
+        timestamptz computed_at
+    }
+
+    audience_definitions {
+        uuid id PK
+        uuid tenant_id FK
+        text name
+        jsonb dsl "árbol de condiciones"
+        char64 dsl_hash "identidad estable de la condición"
+        int schema_version
+        uuid created_by
+        timestamptz created_at
+    }
+
+    templates {
+        uuid id PK
+        uuid tenant_id FK
+        text name
+        text content_mode "uniform o personalized"
+    }
+    template_versions {
+        uuid id PK
+        uuid tenant_id FK
+        uuid template_id FK
+        int version
+        text subject
+        text body_html
+        text body_text
+        jsonb declared_variables "allowlist de variables permitidas"
+        char64 content_hash
+        timestamptz published_at
+    }
+
+    campaigns {
+        uuid id PK
+        uuid tenant_id FK
+        text name
+        text mode "static o rules"
+        uuid audience_definition_id FK
+        uuid sending_identity_id FK
+        text lifecycle_state
+        text control_state "running, pausing, paused, aborting"
+        text timezone
+        jsonb quiet_hours
+        timestamptz created_at
+    }
+    campaign_steps {
+        uuid id PK
+        uuid tenant_id FK
+        uuid campaign_id FK
+        int position
+        interval wait_before "espera respecto del paso anterior"
+        interval valid_for "vencimiento del mensaje"
+        uuid template_version_id FK
+        jsonb skip_if "condición DSL de salida del paso"
+    }
+
+    campaign_runs {
+        uuid id PK
+        uuid tenant_id FK
+        uuid campaign_id FK
+        timestamptz as_of "instante congelado de la resolución"
+        jsonb dsl_snapshot "copia literal de la condición"
+        text compiler_version
+        text sql_fingerprint
+        text status
+        int audience_size
+        timestamptz started_at
+        timestamptz finished_at
+    }
+    campaign_recipients {
+        uuid id PK
+        uuid tenant_id FK
+        uuid run_id FK
+        uuid customer_id FK
+        char64 email_hash "sha256 del email normalizado"
+        timestamptz entered_at
+        text exit_reason
+    }
+
+    send_intents {
+        uuid id PK
+        uuid tenant_id FK
+        uuid run_id FK
+        uuid step_id FK
+        uuid recipient_id FK
+        uuid customer_id FK
+        char64 idempotency_key "uuid v5 de run, step y customer"
+        text state
+        timestamptz scheduled_for
+        timestamptz expires_at
+        text claimed_by
+        timestamptz claim_expires_at
+        int attempts
+        text provider_message_id
+    }
+    send_attempts {
+        bigint id PK
+        uuid tenant_id FK
+        uuid intent_id FK
+        int attempt_no
+        timestamptz started_at
+        timestamptz finished_at
+        text outcome
+        text provider_status
+        text error_class
+        text error_message
+    }
+    email_events {
+        bigint id PK
+        uuid tenant_id FK
+        uuid intent_id FK
+        text provider_message_id
+        text type "delivered, bounce, complaint, open, click"
+        timestamptz occurred_at
+        jsonb payload
+    }
+
+    suppressions {
+        bigint id PK
+        uuid tenant_id FK
+        char64 email_hash
+        text reason "unsubscribed, hard_bounce, complaint, manual, erasure"
+        text scope "tenant o topic"
+        text source
+        timestamptz created_at
+        timestamptz expires_at "null es permanente"
+    }
+
+    recipient_decisions {
+        bigint id PK
+        uuid tenant_id FK
+        uuid run_id FK
+        uuid customer_id FK
+        text decision "included, excluded o deferred"
+        text reason_code
+        text node_id "nodo del DSL que decidió"
+        jsonb detail
+        timestamptz decided_at
+    }
+
+    rule_memberships {
+        uuid id PK
+        uuid tenant_id FK
+        uuid campaign_id FK
+        uuid customer_id FK
+        char64 enrollment_key "identidad de la causa"
+        bool currently_in
+        timestamptz first_matched_at
+        timestamptz last_evaluated_at
+        uuid enrolled_run_id FK
+    }
+    rule_evaluation_queue {
+        bigint id PK
+        uuid tenant_id FK
+        uuid customer_id FK
+        text reason "data_change, time_sweep o manual"
+        timestamptz created_at
+        timestamptz processed_at
+    }
+
+    tenant_send_policies {
+        uuid tenant_id PK
+        text provider
+        text subaccount
+        text ip_pool
+        int max_per_second
+        int max_per_day
+        int warmup_stage
+        int complaint_rate_bps
+        int bounce_rate_bps
+        text state "active, throttled o halted"
+    }
+    sending_identities {
+        uuid id PK
+        uuid tenant_id FK
+        text from_email
+        text from_domain
+        bool dkim_verified
+        bool spf_ok
+        text dmarc_policy
+        timestamptz verified_at
+    }
+
+    customers ||--o{ orders : "compra"
+    orders ||--o{ customer_product_affinity : "alimenta"
+    customers ||--o{ customer_product_affinity : "tiene afinidad"
+    products ||--o{ customer_product_affinity : "es comprado por"
+
+    audience_definitions ||--o{ campaigns : "define la audiencia de"
+    templates ||--o{ template_versions : "versiona"
+    template_versions ||--o{ campaign_steps : "provee contenido a"
+    campaigns ||--o{ campaign_steps : "tiene pasos"
+    campaigns ||--o{ campaign_runs : "ejecuta"
+    sending_identities ||--o{ campaigns : "firma"
+    tenant_send_policies ||--o{ campaigns : "acota"
+
+    campaign_runs ||--o{ campaign_recipients : "congela"
+    campaign_runs ||--o{ recipient_decisions : "justifica"
+    campaign_recipients ||--o{ send_intents : "genera por paso"
+    campaign_steps ||--o{ send_intents : "materializa"
+    customers ||--o{ campaign_recipients : "es destinatario"
+    send_intents ||--o{ send_attempts : "intenta"
+    send_intents ||--o{ email_events : "recibe eventos"
+    email_events ||--o{ suppressions : "puede originar"
+
+    campaigns ||--o{ rule_memberships : "sigue membresía"
+    customers ||--o{ rule_memberships : "pertenece a"
+    rule_evaluation_queue }o--|| customers : "encola reevaluación de"

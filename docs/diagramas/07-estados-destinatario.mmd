@@ -1,0 +1,60 @@
+%% Máquina de estados de un destinatario dentro del envío, es decir de un
+%% send_intent: una fila por (run, paso, cliente).
+%% La frontera de idempotencia es el paso claimed: nadie llama al proveedor
+%% sin haber ganado antes el claim de esa fila.
+stateDiagram-v2
+    direction TB
+
+    [*] --> queued : se materializa el intent con idempotency_key
+
+    queued --> suppressed : baja, rebote duro o queja al revalidar
+    queued --> unmailable : email_status distinto de valid
+    queued --> cancelled : el run se aborta o la regla expulsa al cliente
+    queued --> expired : vence valid_for antes de poder despachar
+
+    queued --> claimed : UPDATE ... FOR UPDATE SKIP LOCKED gana la fila
+    claimed --> queued : vence claim_expires_at y el reaper la devuelve
+
+    claimed --> rendering : contexto del destinatario armado
+    rendering --> render_failed : variable no declarada o sello HMAC no coincide
+    render_failed --> [*]
+
+    rendering --> in_flight : entregado al proveedor, todavía sin acuse
+    in_flight --> sent : el proveedor acusa y devuelve provider_message_id
+    in_flight --> retry_scheduled : error transitorio 5xx, timeout o 429
+    in_flight --> failed : error permanente 4xx que no es de cuota
+    in_flight --> unresolved : el worker murió sin acuse
+
+    retry_scheduled --> claimed : backoff exponencial con jitter, hasta 5 intentos
+    retry_scheduled --> failed : se agotaron los intentos
+    unresolved --> sent : llega un webhook con nuestra idempotency_key
+    unresolved --> failed : sin evidencia tras 24 horas
+
+    sent --> delivered : webhook delivered
+    sent --> bounced : webhook bounce
+    sent --> complained : webhook complaint
+    delivered --> complained : queja posterior a la entrega
+    delivered --> opened : webhook open, si el tenant habilitó el pixel
+    opened --> clicked : webhook click
+
+    bounced --> [*]
+    complained --> [*]
+    clicked --> [*]
+    delivered --> [*]
+    failed --> [*]
+    suppressed --> [*]
+    unmailable --> [*]
+    cancelled --> [*]
+    expired --> [*]
+
+    note right of unresolved
+        Es el estado honesto que evita el doble envío.
+        No reintentamos algo que pudo haberse enviado:
+        lo dejamos visible y esperamos evidencia.
+    end note
+
+    note right of in_flight
+        Se escribe ANTES de llamar al proveedor.
+        Si escribiéramos después, un reinicio en el
+        medio no dejaría rastro de la llamada hecha.
+    end note
