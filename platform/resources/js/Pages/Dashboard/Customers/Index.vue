@@ -17,6 +17,9 @@ const props = defineProps({
     // Catálogo de países del TENANT (ISO-2, ordenado, sin nulls). Puede no
     // venir todavía: mientras no venga, el filtro se muestra igual.
     countryOptions: { type: Array, default: null },
+    // Tamaños de página que el servidor acepta de verdad. Que la lista viva allá
+    // evita que la pantalla ofrezca un valor que el backend después descarta.
+    perPageOptions: { type: Array, default: null },
     currency: { type: String, required: true },
 });
 
@@ -162,11 +165,14 @@ const EMAIL_STATUS_OPTIONS = [
     { value: 'missing', label: 'Sin email' },
 ];
 
-const PER_PAGE_OPTIONS = [
-    { value: 25, label: '25 por página' },
-    { value: 50, label: '50 por página' },
-    { value: 100, label: '100 por página' },
-];
+const FALLBACK_PER_PAGE = [25, 50, 100];
+
+const perPageChoices = computed(() =>
+    (props.perPageOptions ?? FALLBACK_PER_PAGE).map((value) => ({
+        value,
+        label: `${value} por página`,
+    })),
+);
 
 /*
  * Catálogo de países. Si el servidor manda el catálogo del tenant lo usamos; si
@@ -330,7 +336,7 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                     id="customers-per-page"
                                     class="field mt-1 block"
                                     :model-value="perPage"
-                                    :options="PER_PAGE_OPTIONS"
+                                    :options="perPageChoices"
                                     @update:model-value="(value) => setFilter('per_page', value)"
                                 />
                             </div>
