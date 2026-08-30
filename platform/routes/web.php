@@ -6,6 +6,7 @@ use App\Domain\Outreach\Http\UnsubscribeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Dashboard\Controllers\ApiConsoleController;
 use App\Http\Dashboard\Controllers\CustomerController;
+use App\Http\Dashboard\Controllers\OrderController;
 use App\Http\Dashboard\Controllers\StatisticsController;
 use App\Http\Dashboard\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +60,13 @@ Route::middleware(['auth', 'tenant'])->group(function (): void {
     Route::middleware('can.role:customers')->group(function (): void {
         Route::get('clientes', [CustomerController::class, 'index'])->name('dashboard.customers.index');
         Route::get('clientes/{customer}', [CustomerController::class, 'show'])->name('dashboard.customers.show');
+
+        // El detalle de una orden cuelga del cliente y no de /ordenes a secas
+        // porque no hay forma legítima de llegar a una orden sin saber de
+        // quién es: la URL anidada hace que el control de acceso y la
+        // navegación cuenten la misma historia.
+        Route::get('clientes/{customer}/ordenes/{order}', [OrderController::class, 'show'])
+            ->name('dashboard.customers.orders.show');
     });
 
     // ── Usuarios: sólo administrador ─────────────────────────────

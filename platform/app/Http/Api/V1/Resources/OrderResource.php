@@ -40,6 +40,11 @@ class OrderResource extends JsonResource
             'fx_rate' => (float) $this->fx_rate,
             'placed_at' => $this->placed_at->toIso8601String(),
             'placed_on' => $this->placed_on->format('Y-m-d'),
+            // La marca de versión del retailer: es la que decide si una
+            // actualización que llega desordenada se aplica o se ignora.
+            // Expuesta para que "por qué esta orden quedó así" tenga respuesta
+            // desde la pantalla y no sólo desde los logs.
+            'source_updated_at' => $this->source_updated_at->toIso8601String(),
             'received_at' => $this->received_at->toIso8601String(),
             'arrival_lag_days' => $this->arrivalLagInDays(),
             'customer_id' => $this->customer_id,
