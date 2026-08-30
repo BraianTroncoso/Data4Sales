@@ -1,6 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
+// `route` sólo está inyectada en los templates por el plugin de Ziggy; acá se
+// importa para poder consultarla desde el <script setup>.
+import { route } from '../../../../../vendor/tightenco/ziggy';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import EmailStatusDot from '@/Components/EmailStatusDot.vue';
 import EmptyState from '@/Components/EmptyState.vue';
@@ -17,6 +20,21 @@ const props = defineProps({
 });
 
 const metrics = computed(() => props.customer.metrics ?? {});
+
+/*
+ * El detalle de orden se está construyendo del lado del servidor en paralelo.
+ * Preguntarle a Ziggy si la ruta existe evita que esta pantalla se caiga entera
+ * mientras tanto: `route()` con un nombre no registrado lanza, y se llevaría
+ * puesta la ficha del cliente. Cuando la ruta aparece, el enlace se enciende
+ * solo, sin tocar este archivo.
+ */
+const hasOrderDetail = computed(() => {
+    try {
+        return route().has('dashboard.customers.orders.show');
+    } catch {
+        return false;
+    }
+});
 
 const EMAIL_STATUS_LABEL = {
     valid: 'válido',
@@ -229,24 +247,44 @@ const ddClass = 'mt-0.5 text-sm text-ink';
 
                     <div v-if="orders.length" class="divide-y divide-line">
                         <div v-for="order in orders" :key="order.id">
-                            <button
-                                type="button"
-                                class="focus-ring flex w-full items-center gap-3 rounded-chip px-4 py-3 text-left transition hover:bg-raised"
-                                :aria-expanded="expanded.has(order.id)"
-                                @click="toggle(order.id)"
-                            >
-                                <svg
-                                    class="h-3.5 w-3.5 shrink-0 text-ink-muted transition-transform"
-                                    :class="expanded.has(order.id) ? 'rotate-90' : ''"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    aria-hidden="true"
+                            <!--
+                                Dos acciones distintas en la misma fila, y por eso dos controles:
+                                el chevron abre los renglones sin salir de la ficha, y la fila
+                                lleva al detalle completo. Antes la fila entera era un acordeón y
+                                no había forma de llegar a la orden.
+                            -->
+                            <div class="flex w-full items-center transition hover:bg-raised">
+                                <button
+                                    type="button"
+                                    class="focus-ring shrink-0 rounded-chip py-3 pl-4 pr-1"
+                                    :aria-expanded="expanded.has(order.id)"
+                                    :aria-controls="`order-items-${order.id}`"
+                                    :title="expanded.has(order.id) ? 'Ocultar los renglones' : 'Ver los renglones acá mismo'"
+                                    @click="toggle(order.id)"
                                 >
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
-                                </svg>
+                                    <span class="sr-only">Renglones de {{ order.external_id }}</span>
+                                    <svg
+                                        class="h-3.5 w-3.5 text-ink-muted transition-transform"
+                                        :class="expanded.has(order.id) ? 'rotate-90' : ''"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        aria-hidden="true"
+                                    >
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
+                                    </svg>
+                                </button>
 
+                            <component
+                                :is="hasOrderDetail ? Link : 'button'"
+                                v-bind="
+                                    hasOrderDetail
+                                        ? { href: route('dashboard.customers.orders.show', [customer.id, order.id]) }
+                                        : { type: 'button', onClick: () => toggle(order.id) }
+                                "
+                                class="focus-ring flex flex-1 items-center gap-3 rounded-chip py-3 pl-2 pr-4 text-left"
+                            >
                                 <span class="w-32 shrink-0 truncate font-mono text-xs text-ink-muted">
                                     {{ order.external_id }}
                                 </span>
@@ -290,10 +328,12 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                                         />
                                     </span>
                                 </span>
-                            </button>
+                            </component>
+                            </div>
 
                             <div
                                 v-if="expanded.has(order.id)"
+                                :id="`order-items-${order.id}`"
                                 class="bg-canvas px-4 pb-4 pt-1"
                             >
                                 <table class="min-w-full text-sm">
