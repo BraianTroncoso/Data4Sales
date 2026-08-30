@@ -138,9 +138,15 @@ const totals = computed(() => {
 
 const hasData = computed(() => props.series.length > 0);
 
+// Colores de serie de marca. Se declaran una sola vez acá y viajan por props a los
+// componentes de gráfico: antes el mismo hex estaba escrito a mano en tres lugares,
+// así que un cambio de paleta se olvidaba en alguno.
+const SERIES_COLOR = '#7340ff';
+const SERIES_COLOR_ALT = '#06c996';
+
 const chartLines = [
-    { key: 'net_minor', label: 'Revenue neto', color: '#4f46e5', axis: 'left', area: true },
-    { key: 'orders_count', label: 'Órdenes', color: '#0d9488', axis: 'right' },
+    { key: 'net_minor', label: 'Revenue neto', color: SERIES_COLOR, axis: 'left', area: true },
+    { key: 'orders_count', label: 'Órdenes', color: SERIES_COLOR_ALT, axis: 'right' },
 ];
 
 // Los buckets ya vienen calculados en la zona horaria del tenant; volver a aplicarla
@@ -186,10 +192,14 @@ const staleMessage = computed(() => {
     return waiting ? `el más antiguo espera hace ${waiting}` : 'sin marca de tiempo del pendiente más antiguo';
 });
 
-const fieldClass =
-    'rounded-md border-gray-300 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200';
-const cardClass =
-    'rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800';
+// Primitivos de app.css: la cadena larga estaba copiada a mano acá y en otras cuatro
+// pantallas. El tema base ya es oscuro, así que no queda ninguna variante de modo
+// oscuro que declarar acá.
+const fieldClass = 'field py-2';
+const cardClass = 'card';
+// La card de filtros se subordina al contenido: mismo radio y borde, sin la sombra
+// de marca, para que el peso visual quede en las cards de datos.
+const filterCardClass = 'rounded-card border border-line bg-surface';
 </script>
 
 <template>
@@ -198,11 +208,11 @@ const cardClass =
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <h2 class="text-xl font-semibold leading-tight text-ink">
                     Estadísticas
                 </h2>
 
-                <p class="text-sm text-gray-500 dark:text-gray-400">
+                <p class="text-sm text-ink-muted">
                     {{ tenant.name }} · reporta en {{ tenant.currency }} ·
                     {{ tenant.timezone }}
                 </p>
@@ -218,7 +228,7 @@ const cardClass =
                 -->
                 <div
                     v-if="freshness?.is_stale"
-                    class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+                    class="flex items-start gap-3 rounded-card border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700"
                 >
                     <svg
                         class="mt-0.5 h-4 w-4 shrink-0"
@@ -242,12 +252,12 @@ const cardClass =
                 </div>
 
                 <!-- Filtros -->
-                <div :class="cardClass" class="p-4">
+                <div :class="filterCardClass" class="p-4">
                     <div class="flex flex-wrap items-end gap-4">
                         <div>
                             <label
                                 for="stats-from"
-                                class="block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                class="field-label"
                             >
                                 Desde
                             </label>
@@ -266,7 +276,7 @@ const cardClass =
                         <div>
                             <label
                                 for="stats-to"
-                                class="block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                class="field-label"
                             >
                                 Hasta
                             </label>
@@ -285,7 +295,7 @@ const cardClass =
                         <div>
                             <label
                                 for="stats-granularity"
-                                class="block text-xs font-medium text-gray-500 dark:text-gray-400"
+                                class="field-label"
                             >
                                 Granularidad
                             </label>
@@ -312,11 +322,11 @@ const cardClass =
                                 v-for="preset in presets"
                                 :key="preset.key"
                                 type="button"
-                                class="rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                                class="focus-ring rounded-pill px-3 py-1.5 text-xs font-medium transition"
                                 :class="
                                     isActivePreset(preset)
-                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-300'
-                                        : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                                        ? 'border border-brand bg-brand text-white'
+                                        : 'border border-line-strong text-ink-muted hover:bg-raised'
                                 "
                                 @click="applyPreset(preset)"
                             >
@@ -324,7 +334,7 @@ const cardClass =
                             </button>
                         </div>
 
-                        <p class="ml-auto pb-1 text-xs text-gray-500 dark:text-gray-400">
+                        <p class="ml-auto pb-1 text-xs text-ink-muted">
                             Dataset disponible: {{ formatDate(bounds.from) }} –
                             {{ formatDate(bounds.to) }}
                         </p>
@@ -362,11 +372,11 @@ const cardClass =
                     <!-- Serie temporal -->
                     <div :class="cardClass" class="p-4">
                         <div class="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            <h3 class="text-sm font-semibold text-ink">
                                 Revenue y órdenes en el tiempo
                             </h3>
 
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                            <p class="text-xs text-ink-muted">
                                 {{ formatNumber(series.length) }} puntos ·
                                 {{ GRANULARITIES.find((g) => g.value === range.granularity)?.label }}
                             </p>
@@ -388,10 +398,10 @@ const cardClass =
                         <!-- Segmentación RFM -->
                         <div :class="cardClass" class="p-4">
                             <div class="flex items-baseline justify-between gap-2">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                <h3 class="text-sm font-semibold text-ink">
                                     Segmentación RFM
                                 </h3>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                <p class="text-xs text-ink-muted">
                                     Ordenado por revenue
                                 </p>
                             </div>
@@ -400,7 +410,7 @@ const cardClass =
                                 v-if="segmentItems.length"
                                 class="mt-2"
                                 :items="segmentItems"
-                                color="#4f46e5"
+                                :color="SERIES_COLOR"
                                 meta-width="7rem"
                             />
 
@@ -415,12 +425,12 @@ const cardClass =
                         <!-- Top productos / categorías -->
                         <div :class="cardClass" class="p-4">
                             <div class="flex items-baseline justify-between gap-2">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                <h3 class="text-sm font-semibold text-ink">
                                     Top {{ by === 'category' ? 'categorías' : 'productos' }}
                                 </h3>
 
                                 <div
-                                    class="inline-flex overflow-hidden rounded-md border border-gray-300 text-xs dark:border-gray-600"
+                                    class="inline-flex items-center gap-1 text-xs"
                                 >
                                     <button
                                         v-for="option in [
@@ -429,11 +439,11 @@ const cardClass =
                                         ]"
                                         :key="option.value"
                                         type="button"
-                                        class="px-2.5 py-1 font-medium transition"
+                                        class="focus-ring rounded-pill px-3 py-1 font-medium transition"
                                         :class="
                                             by === option.value
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+                                                ? 'border border-brand bg-brand text-white'
+                                                : 'border border-line-strong text-ink-muted hover:bg-raised'
                                         "
                                         @click="setBy(option.value)"
                                     >
@@ -446,7 +456,7 @@ const cardClass =
                                 v-if="topItems.length"
                                 class="mt-2"
                                 :items="topItems"
-                                color="#0d9488"
+                                :color="SERIES_COLOR_ALT"
                                 meta-width="5.5rem"
                             />
 
@@ -461,46 +471,46 @@ const cardClass =
 
                     <!-- Retención -->
                     <div :class="cardClass" class="p-4">
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        <h3 class="text-sm font-semibold text-ink">
                             Retención
                         </h3>
 
                         <dl
-                            class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:divide-x sm:divide-gray-100 dark:sm:divide-gray-700"
+                            class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:divide-x sm:divide-line"
                         >
                             <div class="sm:pr-4">
-                                <dt class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <dt class="field-label uppercase">
                                     Tasa de recompra
                                 </dt>
-                                <dd class="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                                <dd class="mt-1 text-xl font-semibold tabular-nums text-ink">
                                     {{ formatPercent(retention.repeat_rate) }}
                                 </dd>
-                                <dd class="text-xs text-gray-500 dark:text-gray-400">
+                                <dd class="text-xs text-ink-muted">
                                     {{ formatNumber(retention.repeat_buyers) }} de
                                     {{ formatNumber(retention.buyers) }} compradores
                                 </dd>
                             </div>
 
                             <div class="sm:px-4">
-                                <dt class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <dt class="field-label uppercase">
                                     Revenue de clientes que vuelven
                                 </dt>
-                                <dd class="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                                <dd class="mt-1 text-xl font-semibold tabular-nums text-ink">
                                     {{ formatPercent(retention.repeat_revenue_share) }}
                                 </dd>
-                                <dd class="text-xs text-gray-500 dark:text-gray-400">
+                                <dd class="text-xs text-ink-muted">
                                     Porción del revenue del período
                                 </dd>
                             </div>
 
                             <div class="sm:pl-4">
-                                <dt class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <dt class="field-label uppercase">
                                     Órdenes por comprador
                                 </dt>
-                                <dd class="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                                <dd class="mt-1 text-xl font-semibold tabular-nums text-ink">
                                     {{ formatNumber(retention.avg_orders_per_buyer, { maximumFractionDigits: 2 }) }}
                                 </dd>
-                                <dd class="text-xs text-gray-500 dark:text-gray-400">
+                                <dd class="text-xs text-ink-muted">
                                     Promedio en el rango seleccionado
                                 </dd>
                             </div>
@@ -515,7 +525,7 @@ const cardClass =
                     >
                         <button
                             type="button"
-                            class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-raised"
                             @click="applyPreset(presets[2])"
                         >
                             Ver todo el dataset

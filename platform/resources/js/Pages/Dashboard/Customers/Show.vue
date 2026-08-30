@@ -63,10 +63,10 @@ function itemsCount(order) {
     return (order.items ?? []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
 }
 
-const cardClass =
-    'rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800';
-const dtClass = 'text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400';
-const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
+// La cadena de la tarjeta vive una sola vez, en `.card` (app.css).
+const cardClass = 'card';
+const dtClass = 'text-xs uppercase tracking-wide text-ink-muted';
+const ddClass = 'mt-0.5 text-sm text-ink';
 </script>
 
 <template>
@@ -78,17 +78,17 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                 <div class="flex items-baseline gap-3">
                     <Link
                         :href="route('dashboard.customers.index')"
-                        class="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                        class="focus-ring rounded-chip text-sm text-brand-600 hover:text-brand-700 hover:underline"
                     >
                         ← Clientes
                     </Link>
 
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                    <h2 class="text-xl font-semibold leading-tight text-ink">
                         {{ customer.name || 'Sin nombre' }}
                     </h2>
                 </div>
 
-                <p class="font-mono text-xs text-gray-500 dark:text-gray-400">
+                <p class="font-mono text-xs text-ink-muted">
                     {{ customer.external_id }}
                 </p>
             </div>
@@ -99,11 +99,11 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                 <!-- Perfil -->
                 <div :class="cardClass" class="p-4">
                     <div class="flex flex-wrap items-center justify-between gap-3">
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Perfil</h3>
+                        <h3 class="text-sm font-semibold text-ink">Perfil</h3>
 
                         <span
                             v-if="metrics.segment"
-                            class="inline-flex items-center rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20"
+                            class="pill bg-brand-50 px-2 py-0.5 text-brand-700 ring-1 ring-inset ring-brand-600/75"
                             :title="`Segmento RFM: ${metrics.segment}`"
                         >
                             {{ metrics.segment_label ?? metrics.segment }}
@@ -124,20 +124,20 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                                     <a
                                         v-if="customer.email"
                                         :href="`mailto:${customer.email}`"
-                                        class="break-all font-mono text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                                        class="focus-ring break-all rounded-chip font-mono text-xs text-brand-600 hover:text-brand-700 hover:underline"
                                     >
                                         {{ customer.email }}
                                     </a>
-                                    <span v-else class="text-gray-500 dark:text-gray-400">—</span>
+                                    <span v-else class="text-ink-muted">—</span>
                                 </span>
                                 <span
                                     v-if="customer.email_normalized && customer.email_normalized !== customer.email"
-                                    class="mt-0.5 block font-mono text-[11px] text-gray-500 dark:text-gray-400"
+                                    class="mt-0.5 block font-mono text-[11px] text-ink-muted"
                                     title="Forma normalizada usada para deduplicar clientes."
                                 >
                                     norm.: {{ customer.email_normalized }}
                                 </span>
-                                <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                                <span class="mt-0.5 block text-xs text-ink-muted">
                                     Estado: {{ EMAIL_STATUS_LABEL[customer.email_status] ?? customer.email_status ?? 'desconocido' }}
                                 </span>
                             </dd>
@@ -204,13 +204,13 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                 <!-- Historial de órdenes -->
                 <div :class="cardClass">
                     <div
-                        class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700"
+                        class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3"
                     >
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            <h3 class="text-sm font-semibold text-ink">
                                 Historial de órdenes
                             </h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                            <p class="text-xs text-ink-muted">
                                 {{ formatNumber(orders.length) }} órdenes ·
                                 primera {{ formatDate(metrics.first_order_at, { timeZone: tenant.timezone }) }} ·
                                 última {{ formatDate(metrics.last_order_at, { timeZone: tenant.timezone }) }}
@@ -220,23 +220,23 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                         <button
                             v-if="orders.length"
                             type="button"
-                            class="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            class="focus-ring rounded-pill border border-line-strong px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-canvas"
                             @click="toggleAll"
                         >
                             {{ allExpanded ? 'Colapsar todo' : 'Expandir todo' }}
                         </button>
                     </div>
 
-                    <div v-if="orders.length" class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <div v-if="orders.length" class="divide-y divide-line">
                         <div v-for="order in orders" :key="order.id">
                             <button
                                 type="button"
-                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                class="focus-ring flex w-full items-center gap-3 rounded-chip px-4 py-3 text-left transition hover:bg-raised"
                                 :aria-expanded="expanded.has(order.id)"
                                 @click="toggle(order.id)"
                             >
                                 <svg
-                                    class="h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform"
+                                    class="h-3.5 w-3.5 shrink-0 text-ink-muted transition-transform"
                                     :class="expanded.has(order.id) ? 'rotate-90' : ''"
                                     viewBox="0 0 24 24"
                                     fill="none"
@@ -247,13 +247,13 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
                                 </svg>
 
-                                <span class="w-32 shrink-0 truncate font-mono text-xs text-gray-600 dark:text-gray-400">
+                                <span class="w-32 shrink-0 truncate font-mono text-xs text-ink-muted">
                                     {{ order.external_id }}
                                 </span>
 
                                 <StatusBadge :status="order.status" class="shrink-0" />
 
-                                <span class="shrink-0 text-xs text-gray-500 dark:text-gray-400">
+                                <span class="shrink-0 text-xs text-ink-muted">
                                     {{ formatDateTime(order.placed_at, { timeZone: tenant.timezone }) }}
                                 </span>
 
@@ -264,14 +264,14 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                                 -->
                                 <span
                                     v-if="order.arrival_lag_days > 1"
-                                    class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                    class="shrink-0 rounded-chip border border-line bg-canvas px-1.5 py-0.5 text-[11px] text-ink-muted"
                                     :title="`Se recibió ${order.arrival_lag_days} días después de la fecha de la orden (${formatDateTime(order.received_at, { timeZone: tenant.timezone })}). Los reportes cerrados antes de esa fecha no la contemplaban.`"
                                 >
                                     +{{ order.arrival_lag_days }} d de demora
                                 </span>
 
                                 <span class="ml-auto shrink-0 text-right">
-                                    <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    <span class="block text-sm font-medium text-ink">
                                         <Money
                                             :amount-minor="order.total_amount_minor"
                                             :currency="order.currency"
@@ -280,7 +280,7 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
 
                                     <span
                                         v-if="isConverted(order)"
-                                        class="block text-xs text-gray-500 dark:text-gray-400"
+                                        class="block text-xs text-ink-muted"
                                     >
                                         ≈
                                         <Money
@@ -294,11 +294,11 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
 
                             <div
                                 v-if="expanded.has(order.id)"
-                                class="bg-gray-50 px-4 pb-4 pt-1 dark:bg-gray-900/40"
+                                class="bg-canvas px-4 pb-4 pt-1"
                             >
                                 <table class="min-w-full text-sm">
                                     <thead>
-                                        <tr class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <tr class="text-left text-xs uppercase tracking-wide text-ink-muted">
                                             <th class="py-1 pr-3 font-medium">SKU</th>
                                             <th class="py-1 pr-3 font-medium">Producto</th>
                                             <th class="py-1 pr-3 font-medium">Categoría</th>
@@ -308,27 +308,27 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                                         </tr>
                                     </thead>
 
-                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    <tbody class="divide-y divide-line">
                                         <tr v-for="item in order.items ?? []" :key="item.id">
-                                            <td class="py-1.5 pr-3 font-mono text-xs text-gray-500 dark:text-gray-400">
+                                            <td class="py-1.5 pr-3 font-mono text-xs text-ink-muted">
                                                 {{ item.product?.sku ?? '—' }}
                                             </td>
-                                            <td class="py-1.5 pr-3 text-gray-800 dark:text-gray-200">
+                                            <td class="py-1.5 pr-3 text-ink">
                                                 {{ item.product?.name ?? '—' }}
                                             </td>
-                                            <td class="py-1.5 pr-3 text-gray-500 dark:text-gray-400">
+                                            <td class="py-1.5 pr-3 text-ink-muted">
                                                 {{ item.product?.category ?? '—' }}
                                             </td>
-                                            <td class="py-1.5 pr-3 text-right tabular-nums text-gray-800 dark:text-gray-200">
+                                            <td class="py-1.5 pr-3 text-right tabular-nums text-ink">
                                                 {{ formatNumber(item.quantity) }}
                                             </td>
-                                            <td class="py-1.5 pr-3 text-right text-gray-800 dark:text-gray-200">
+                                            <td class="py-1.5 pr-3 text-right text-ink">
                                                 <Money
                                                     :amount-minor="item.unit_amount_minor"
                                                     :currency="item.currency ?? order.currency"
                                                 />
                                             </td>
-                                            <td class="py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                                            <td class="py-1.5 text-right font-medium text-ink">
                                                 <Money
                                                     :amount-minor="item.total_amount_minor"
                                                     :currency="item.currency ?? order.currency"
@@ -337,14 +337,14 @@ const ddClass = 'mt-0.5 text-sm text-gray-900 dark:text-gray-100';
                                         </tr>
 
                                         <tr v-if="!(order.items ?? []).length">
-                                            <td colspan="6" class="py-2 text-xs text-gray-500 dark:text-gray-400">
+                                            <td colspan="6" class="py-2 text-xs text-ink-muted">
                                                 La orden no tiene renglones cargados.
                                             </td>
                                         </tr>
                                     </tbody>
                                 </table>
 
-                                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                <p class="mt-2 text-xs text-ink-muted">
                                     {{ formatNumber(itemsCount(order)) }} unidades ·
                                     moneda de la orden {{ order.currency }}
                                     <template v-if="isConverted(order)">

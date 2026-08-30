@@ -158,9 +158,12 @@ function recencyLabel(days) {
     return `${formatNumber(days)} d`;
 }
 
+// `field-label` trae `display:block`: en un <th> eso rompería el layout de la tabla,
+// así que la utilidad `table-cell` (capa utilities, gana sobre components) lo restituye.
+// La densidad es la misma que la tabla de Usuarios: px-4 py-2.5 en th y td.
 const thClass =
-    'whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400';
-const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300';
+    'field-label table-cell whitespace-nowrap px-4 py-2.5 text-left uppercase';
+const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
 </script>
 
 <template>
@@ -169,18 +172,22 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <h2 class="text-xl font-semibold leading-tight text-ink">
                     Datos de clientes
                 </h2>
 
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ tenant.name }}</p>
+                <p class="text-sm text-ink-muted">{{ tenant.name }}</p>
             </div>
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <!--
+                    La barra de filtros va sin sombra: es una superficie de trabajo, no una
+                    tarjeta de contenido. La sombra de marca se reserva para la tabla.
+                -->
                 <div
-                    class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    class="rounded-card border border-line bg-surface p-4"
                 >
                     <!--
                         La búsqueda es la acción principal: un agente de soporte llega con un
@@ -188,16 +195,13 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                     -->
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
                         <div class="flex-1">
-                            <label
-                                for="customers-search"
-                                class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
+                            <label for="customers-search" class="field-label">
                                 Buscar cliente
                             </label>
 
                             <div class="relative mt-1">
                                 <svg
-                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -215,22 +219,19 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     autofocus
                                     autocomplete="off"
                                     placeholder="Email, nombre o identificador externo"
-                                    class="block w-full py-2 pl-9 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"
+                                    class="field block py-2 pl-9"
                                 />
                             </div>
                         </div>
 
                         <div class="flex flex-wrap items-end gap-3">
                             <div>
-                                <label
-                                    for="customers-segment"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-segment" class="field-label">
                                     Segmento
                                 </label>
                                 <SelectInput
                                     id="customers-segment"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="segment"
                                     :options="segmentOptions"
                                     placeholder="Todos"
@@ -239,10 +240,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             </div>
 
                             <div>
-                                <label
-                                    for="customers-country"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-country" class="field-label">
                                     País
                                 </label>
                                 <input
@@ -250,7 +248,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     v-model="country"
                                     list="customers-country-options"
                                     placeholder="AR, CL…"
-                                    class="mt-1 block w-24 rounded-md border-gray-300 py-2 text-sm uppercase shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"
+                                    class="field mt-1 block w-24 py-2 uppercase"
                                 />
                                 <datalist id="customers-country-options">
                                     <option v-for="code in countrySuggestions" :key="code" :value="code" />
@@ -258,15 +256,12 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             </div>
 
                             <div>
-                                <label
-                                    for="customers-email-status"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-email-status" class="field-label">
                                     Estado del email
                                 </label>
                                 <SelectInput
                                     id="customers-email-status"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="emailStatus"
                                     :options="EMAIL_STATUS_OPTIONS"
                                     placeholder="Cualquiera"
@@ -275,15 +270,12 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             </div>
 
                             <div>
-                                <label
-                                    for="customers-per-page"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-per-page" class="field-label">
                                     Filas
                                 </label>
                                 <SelectInput
                                     id="customers-per-page"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="perPage"
                                     :options="PER_PAGE_OPTIONS"
                                     @update:model-value="(value) => setFilter('per_page', value)"
@@ -293,7 +285,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             <button
                                 v-if="hasActiveFilters"
                                 type="button"
-                                class="pb-2.5 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                class="focus-ring rounded-pill pb-2.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
                                 @click="resetFilters"
                             >
                                 Limpiar filtros
@@ -302,12 +294,10 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                     </div>
                 </div>
 
-                <div
-                    class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                >
+                <div class="card overflow-hidden">
                     <div v-if="rows.length" class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-900/40">
+                        <table class="min-w-full divide-y divide-line">
+                            <thead class="bg-canvas">
                                 <tr>
                                     <th
                                         v-for="field in ['external_id', 'name']"
@@ -317,7 +307,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     >
                                         <button
                                             type="button"
-                                            class="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                                            class="focus-ring inline-flex items-center gap-1 rounded-chip hover:text-ink"
                                             :title="`Ordenar por ${SORTABLE[field]}`"
                                             @click="sortBy(field)"
                                         >
@@ -344,7 +334,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     <th scope="col" :class="thClass">
                                         <button
                                             type="button"
-                                            class="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                                            class="focus-ring inline-flex items-center gap-1 rounded-chip hover:text-ink"
                                             title="Ordenar por última actividad"
                                             @click="sortBy('last_seen_at')"
                                         >
@@ -354,24 +344,24 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                             </span>
                                         </button>
                                     </th>
-                                    <th scope="col" class="px-3 py-2"><span class="sr-only">Ver</span></th>
+                                    <th scope="col" class="px-4 py-2.5"><span class="sr-only">Ver</span></th>
                                 </tr>
                             </thead>
 
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tbody class="divide-y divide-line">
                                 <tr
                                     v-for="customer in rows"
                                     :key="customer.id"
-                                    class="hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                    class="hover:bg-raised"
                                 >
-                                    <td :class="[tdClass, 'font-mono text-xs text-gray-500 dark:text-gray-400']">
+                                    <td :class="[tdClass, 'font-mono text-xs text-ink-muted']">
                                         {{ customer.external_id }}
                                     </td>
 
                                     <td :class="tdClass">
                                         <Link
                                             :href="route('dashboard.customers.show', customer.id)"
-                                            class="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                            class="focus-ring rounded-chip font-medium text-brand-600 hover:text-brand-700 hover:underline"
                                         >
                                             {{ customer.name || 'Sin nombre' }}
                                         </Link>
@@ -400,7 +390,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                             :title="`${customer.metrics?.net_orders_count ?? 0} netas sobre ${customer.metrics?.orders_count ?? 0} totales`"
                                         >
                                             {{ formatNumber(customer.metrics?.net_orders_count) }}
-                                            <span class="text-gray-400 dark:text-gray-500">
+                                            <span class="text-ink-muted">
                                                 / {{ formatNumber(customer.metrics?.orders_count) }}
                                             </span>
                                         </span>
@@ -424,14 +414,14 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                         {{ recencyLabel(customer.metrics?.recency_days) }}
                                     </td>
 
-                                    <td :class="[tdClass, 'text-gray-500 dark:text-gray-400']">
+                                    <td :class="[tdClass, 'text-ink-muted']">
                                         {{ formatDateTime(customer.last_seen_at, { timeZone: tenant.timezone }) }}
                                     </td>
 
-                                    <td class="px-3 py-2 text-right">
+                                    <td class="px-4 py-2.5 text-right">
                                         <Link
                                             :href="route('dashboard.customers.show', customer.id)"
-                                            class="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                            class="focus-ring rounded-chip text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
                                         >
                                             Ver
                                         </Link>
@@ -449,7 +439,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             <button
                                 v-if="hasActiveFilters"
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-canvas"
                                 @click="resetFilters"
                             >
                                 Limpiar filtros
@@ -462,7 +452,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                         conoce (y contarlo en cada request sobre una tabla grande se paga caro).
                     -->
                     <div
-                        class="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                        class="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-xs text-ink-muted"
                     >
                         <p>
                             {{ formatNumber(rows.length) }} clientes en esta página · email
@@ -472,7 +462,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                         <div class="flex items-center gap-2">
                             <button
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 font-medium text-gray-700 transition enabled:hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:enabled:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 font-medium text-ink-soft transition enabled:hover:bg-canvas disabled:bg-raised disabled:text-ink-muted disabled:border-line"
                                 :disabled="!customers.prev_cursor"
                                 @click="apply({ cursor: customers.prev_cursor })"
                             >
@@ -481,7 +471,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
 
                             <button
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 font-medium text-gray-700 transition enabled:hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:enabled:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 font-medium text-ink-soft transition enabled:hover:bg-canvas disabled:bg-raised disabled:text-ink-muted disabled:border-line"
                                 :disabled="!customers.next_cursor"
                                 @click="apply({ cursor: customers.next_cursor })"
                             >

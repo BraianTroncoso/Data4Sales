@@ -23,27 +23,25 @@ const deltaText = computed(() => {
 
 const deltaClass = computed(() => {
     if (props.delta === null || props.delta === 0) {
-        return 'text-gray-500 dark:text-gray-400';
+        return 'text-ink-muted';
     }
 
     const positive = props.invertDelta ? props.delta < 0 : props.delta > 0;
 
     return positive
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : 'text-rose-600 dark:text-rose-400';
+        ? 'text-success-600'
+        : 'text-danger-600';
 });
 </script>
 
 <template>
-    <div
-        class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-    >
-        <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+    <div class="card p-4">
+        <p class="field-label uppercase">
             {{ label }}
         </p>
 
         <div class="mt-1 flex items-baseline gap-2">
-            <p class="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            <p class="text-2xl font-semibold tabular-nums text-ink">
                 <slot>{{ value }}</slot>
             </p>
 
@@ -52,7 +50,7 @@ const deltaClass = computed(() => {
             </span>
         </div>
 
-        <p v-if="note || $slots.note" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p v-if="note || $slots.note" class="mt-1 text-xs text-ink-muted">
             <slot name="note">{{ note }}</slot>
         </p>
     </div>
