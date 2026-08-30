@@ -10,8 +10,10 @@ contra Mailpit.
 
 ![Estadísticas de MegaRetail: revenue neto, órdenes, ticket promedio y tasa de recompra, con la serie temporal y la segmentación RFM](docs/capturas/02-estadisticas.png)
 
-<sub>MegaRetail, el tenant de base dedicada: 255.651 órdenes reales del emisor.
-Todos los datos de este README y de sus capturas son sintéticos.</sub>
+<sub>MegaRetail, el tenant de base dedicada. La captura es de la instancia sobre
+la que se midió la escala, cargada durante horas: 255.651 órdenes. Un arranque
+nuevo trae bastante menos y las pantallas se ven igual — el detalle está en la
+[sección 7](#7-escala-lo-que-está-medido). Todos los datos son sintéticos.</sub>
 
 | Si querés… | Andá a |
 |---|---|
@@ -212,10 +214,21 @@ está acá, y lo que está a medias dice hasta dónde llega.
   Los retailers mandan la venta completa con comprador y renglones anidados, así
   que ese camino cubre el caso real. Contarlos como aceptados mentiría: «aceptado»
   significa que el registro llegó a la zona curada, y esos no llegan.
-- **El modo por reglas del motor de acciones no está implementado.** Está diseñado;
-  el recorte implementa el modo de conjunto estático. Los operadores `or`, `not` y
-  `purchased` se rechazan **por nombre**: un motor que acepta un `or` y lo compila
-  mal es peor que uno que dice «todavía no».
+- **El modo por reglas del motor de acciones no está implementado.** El enunciado
+  pide dos modos y está el primero. En el **modo estático**, que sí funciona, la
+  audiencia es un *valor*: se pregunta una vez quién cumple la condición, se
+  congela esa lista y se le envía — es la campaña de «gracias a los compradores
+  frecuentes» de la [sección 6](#6-estado-de-la-entrega). En el **modo por
+  reglas**, que no está, la audiencia es un *flujo*: la condición queda viva y
+  cada cliente entra y sale por su cuenta a medida que compra o deja de comprar,
+  con el motor reaccionando de a un cliente por vez. Necesita cosas que el modo
+  estático no tiene: estado de pertenencia por cliente, un disparador que avise
+  qué clientes cambiaron, y una identidad propia por envío para no repetirle a
+  nadie. Todo eso está diseñado en
+  [`docs/parte-3-motor-de-acciones.md`](docs/parte-3-motor-de-acciones.md), con
+  sus diagramas y su modelo de datos; lo que falta es escribirlo. Mientras tanto
+  los operadores `or`, `not` y `purchased` del DSL se rechazan **por nombre**: un
+  motor que acepta un `or` y lo compila mal es peor que uno que dice «todavía no».
 - **No hay interfaz web de campañas.** Los comandos cubren el flujo completo; una
   pantalla no demuestra nada más del motor.
 - **Las tasas de cambio son una tabla fija.** Lo que **no** es una simplificación es
@@ -415,13 +428,14 @@ fuera un registro es peor que no responder.
 
 ## 7. Escala: lo que está medido
 
-**Una instalación nueva no arranca con estos números.** El servicio `dataset`
-carga unas 13.600 órdenes repartidas entre los tres tenants, que alcanzan para
-que todas las pantallas tengan qué mostrar en un par de minutos. La tabla de
-abajo es la instancia sobre la que se tomaron las mediciones de esta sección,
-cargada subiendo `--orders` en el emisor durante horas (sección 2). Se deja
-para que se vea contra qué volumen corren los planes de consulta, no para
-prometer lo que vas a encontrar al levantarlo.
+**Una instalación nueva no arranca con estos números, y no hace falta que lo
+haga.** El arranque carga unas 13.600 órdenes, suficientes para que todas las
+pantallas tengan qué mostrar. La tabla de abajo es la instancia sobre la que se
+tomaron **las mediciones de esta sección**, cargada subiendo `--orders` en el
+emisor durante horas (sección 2). Está para que se vea contra qué volumen
+corren los planes de consulta, no para prometer lo que vas a encontrar al
+levantarlo. Llegar a estos números es cuestión de tiempo de máquina, no de
+ningún paso que falte: es el mismo comando con un `--orders` más grande.
 
 | Tenant | Órdenes | Clientes | Base |
 |---|---:|---:|---|
@@ -430,10 +444,12 @@ prometer lo que vas a encontrar al levantarlo.
 | `mega` | 255.651 | 122.403 | `d4s_tenant_mega` |
 
 ```bash
+# Sin número esperado en el comentario a propósito: el que vale es el que
+# devuelve TU instancia, y depende de cuánto hayas cargado.
 docker compose exec -T postgres-shared psql -U postgres -d d4s_shared \
-  -c "SELECT count(*) FROM orders"            # luna + andes: 121.063
+  -c "SELECT count(*) FROM orders"            # luna + andes, base compartida
 docker compose exec -T postgres-dedicated psql -U postgres -d d4s_tenant_mega \
-  -c "SELECT count(*) FROM orders"            # mega: 255.651
+  -c "SELECT count(*) FROM orders"            # mega, en su base propia
 ```
 
 Que `luna` y `andes` compartan base es lo que hace verificable el aislamiento: los
