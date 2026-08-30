@@ -3,17 +3,48 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex">
     <title>Baja de suscripción</title>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=outfit:400,500,600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; color: #0f172a;
-               display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
-        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: .75rem;
-                padding: 2rem; max-width: 30rem; box-shadow: 0 1px 3px rgb(0 0 0 / .06); }
-        h1 { font-size: 1.125rem; margin: 0 0 .75rem; }
-        p { color: #475569; line-height: 1.6; margin: 0 0 1rem; font-size: .9375rem; }
-        button { background: #0f172a; color: #fff; border: 0; border-radius: .5rem;
-                 padding: .625rem 1.25rem; font-size: .9375rem; cursor: pointer; }
-        .ok { color: #047857; font-weight: 500; }
+        /* Vista pública: no pasa por Vite ni por Tailwind, así que los valores
+           de marca van escritos a mano. Tema OSCURO del producto: canvas #121212,
+           superficie #181818, acento violeta #7340ff.
+           En este sistema la elevación NO se comunica con sombra: la tarjeta se
+           define por un borde de 1px. La sombra azul translúcida del tema viejo
+           se sacó (sobre negro no se ve y era de otra paleta). */
+        body { font-family: "Outfit", system-ui, sans-serif; background: #121212; color: #f2f2f2;
+               display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 1.5rem;
+               -webkit-font-smoothing: antialiased; }
+        .card { background: #181818; border: 1px solid #2f3237; border-radius: 28px;
+                padding: 2.5rem 2.25rem; max-width: 30rem; width: 100%; }
+        h1 { font-size: 1.375rem; line-height: 1.3; font-weight: 600; letter-spacing: -.01em;
+             color: #f2f2f2; margin: 0 0 .75rem; }
+        /* #8b9197 sobre #181818 ≈ 5.5:1. Es el gris secundario de la marca y
+           pasa AA sin tener que aclararlo. */
+        p { color: #8b9197; line-height: 1.65; margin: 0 0 1rem; font-size: .9375rem; }
+        p:last-child { margin-bottom: 0; }
+        strong { color: #f2f2f2; font-weight: 600; }
+        form { margin: 1.75rem 0 0; }
+        /* Única acción de la pantalla: píldora violeta, blanco puro encima
+           (el blanco puro sólo se usa sobre violeta). #ffffff sobre #7340ff ≈ 5.4:1. */
+        button { background: #7340ff; color: #ffffff; border: 0; border-radius: 999px;
+                 min-height: 44px; padding: .75rem 1.75rem; font-family: inherit; font-size: .9375rem;
+                 font-weight: 600; line-height: 1.2; cursor: pointer;
+                 transition: background-color .15s ease, box-shadow .15s ease; }
+        /* El halo violeta es el gesto de interacción de la marca; reemplaza a la
+           sombra de elevación, que acá no existe. */
+        button:hover { background: #8659ff; box-shadow: 0 0 24px -2px rgba(115, 64, 255, .35); }
+        button:active { background: #2c0f7e; box-shadow: none; }
+        /* El CSS de producción de la marca no define foco en ningún botón.
+           Este anillo es decisión nuestra y se conserva a propósito. */
+        button:focus-visible { outline: 2px solid #8659ff; outline-offset: 3px; }
+        /* Sobre fondo oscuro el verde pleno SÍ es legible (al revés que sobre
+           blanco): #06c996 sobre #181818 ≈ 8.1:1, así que vuelve el tono de marca
+           y se descarta el #04815f oscurecido del tema claro, que acá no se leía. */
+        .ok { color: #06c996; }
     </style>
 </head>
 <body>

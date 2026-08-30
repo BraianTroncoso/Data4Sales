@@ -50,7 +50,7 @@ const submit = () => {
                     id="tenant"
                     v-model="form.tenant"
                     type="text"
-                    class="mt-1 block w-full bg-gray-50"
+                    class="mt-1 block w-full bg-canvas"
                     required
                     readonly
                 />
@@ -110,10 +110,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4 flex items-center justify-end">
-                <PrimaryButton
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
+                <PrimaryButton :disabled="form.processing">
                     Cambiar contraseña
                 </PrimaryButton>
             </div>

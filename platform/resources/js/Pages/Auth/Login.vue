@@ -40,7 +40,7 @@ const submit = () => {
     <GuestLayout>
         <Head title="Ingresar" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
+        <div v-if="status" class="mb-4 text-sm font-medium text-success-600">
             {{ status }}
         </div>
 
@@ -59,7 +59,7 @@ const submit = () => {
                     placeholder="luna"
                 />
 
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                <p class="mt-1 text-xs text-ink-muted">
                     El identificador corto de tu retailer.
                 </p>
 
@@ -100,7 +100,7 @@ const submit = () => {
                 <label class="flex items-center">
                     <Checkbox v-model:checked="form.remember" name="remember" />
                     <span
-                        class="ms-2 text-sm text-gray-600 dark:text-gray-400"
+                        class="ms-2 text-sm text-ink-muted"
                         >Recordarme</span
                     >
                 </label>
@@ -110,16 +110,12 @@ const submit = () => {
                 <Link
                     v-if="canResetPassword"
                     :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:text-gray-400 dark:hover:text-gray-100 dark:focus:ring-offset-gray-800"
+                    class="rounded-md text-sm text-ink-muted underline hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-canvas"
                 >
                     ¿Olvidaste tu contraseña?
                 </Link>
 
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
+                <PrimaryButton class="ms-4" :disabled="form.processing">
                     Ingresar
                 </PrimaryButton>
             </div>

@@ -1,3 +1,88 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    /*
+     * Tema oscuro, como el producto que vende Data4Sales: canvas #121212,
+     * violeta #7340ff como acción, y la jerarquía construida con bordes de 1px
+     * en vez de sombras.
+     *
+     * `color-scheme: dark` no es decorativo: es lo que le dice al navegador que
+     * pinte en oscuro los controles nativos — el selector de fecha de los
+     * filtros de Estadísticas, la lista desplegada de un <select>, las barras de
+     * scroll. Sin esto quedan widgets blancos incrustados en una interfaz negra.
+     */
+    :root {
+        color-scheme: dark;
+    }
+
+    body {
+        @apply bg-canvas text-ink;
+    }
+
+    /*
+     * Outfit es geométrica y sus cifras no son tabulares por defecto. Donde el
+     * código ya pide `tabular-nums` (montos, contadores, columnas de tablas)
+     * hay que darle una familia que lo soporte, o el ancho de los dígitos
+     * salta al paginar.
+     */
+    .tabular-nums {
+        @apply font-num;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+@layer components {
+    /*
+     * Estos primitivos existen porque la misma cadena de clases estaba copiada
+     * a mano en cinco pantallas (y con divergencias: dos densidades de tabla,
+     * tres opacidades de disabled). Un cambio de marca ahora se hace acá.
+     */
+
+    .card {
+        @apply rounded-card border border-line bg-surface shadow-card;
+    }
+
+    /*
+     * El hover de tarjeta de la marca es un halo violeta, no una sombra más
+     * grande. Necesita que el borde vire en el mismo gesto: los dos juntos son
+     * el efecto, la sombra sola no lo da.
+     */
+    .card-interactive {
+        @apply card transition duration-200 hover:border-brand hover:shadow-card-hover;
+    }
+
+    /*
+     * Los campos van HUNDIDOS respecto de la tarjeta: sobre oscuro, un input más
+     * claro que su contenedor se lee como un bloque de contenido, no como algo
+     * donde se escribe.
+     */
+    .field {
+        @apply w-full rounded-field border-line-strong bg-canvas text-sm text-ink shadow-none
+               placeholder:text-ink-muted
+               focus:border-brand focus:ring-2 focus:ring-brand/70;
+    }
+
+    .field-label {
+        @apply block text-xs font-medium tracking-wide text-ink-muted;
+    }
+
+    .pill {
+        @apply inline-flex items-center rounded-pill px-3 py-1 text-xs font-semibold;
+    }
+
+    /*
+     * Un solo anillo de foco para toda la aplicación. Antes había componentes
+     * con `focus:outline-none` sin reemplazo — foco invisible para quien navega
+     * con teclado. `focus-visible` evita el anillo en clics de mouse.
+     *
+     * El offset va contra `canvas` para que el anillo se recorte limpio sobre el
+     * fondo de la aplicación y no contra un blanco inexistente.
+     */
+    .focus-ring {
+        @apply focus:outline-none focus-visible:outline-none
+               focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2
+               focus-visible:ring-offset-canvas;
+    }
+}

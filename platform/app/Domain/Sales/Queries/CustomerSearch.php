@@ -46,6 +46,34 @@ final class CustomerSearch
     }
 
     /**
+     * Los paises presentes en el padron de este tenant, ordenados.
+     *
+     * La pantalla necesita saber si hay UNO SOLO — y entonces el filtro de
+     * pais es un control que no filtra nada — o varios. Mirar la pagina
+     * visible no alcanza y ademas engania: MegaRetail tiene 122.400 clientes
+     * en ES y exactamente uno en AR, asi que la primera pagina parece un solo
+     * pais y no lo es.
+     *
+     * Sin cache a proposito. `country` no tiene indice, con lo cual esto es un
+     * recorrido de tabla; pero medirlo primero sale mas barato que estrenar
+     * una invalidacion de cache que hoy no necesita nadie mas en la app.
+     *
+     * @return list<string>
+     */
+    public function countries(): array
+    {
+        /** @var list<string> $countries */
+        $countries = Customer::query()
+            ->whereNotNull('country')
+            ->distinct()
+            ->orderBy('country')
+            ->pluck('country')
+            ->all();
+
+        return $countries;
+    }
+
+    /**
      * @param  Builder<Customer>  $query
      */
     private function applySearch(Builder $query, string $term): void
