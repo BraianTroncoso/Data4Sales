@@ -24,9 +24,24 @@ const props = defineProps({
     currency: { type: String, required: true },
 });
 
-const items = computed(() => props.order.items ?? []);
+/*
+ * `items` puede llegar de dos formas y las dos son legítimas: como array pelado,
+ * o envuelto en `{ data: [...] }`, que es lo que produce
+ * `OrderItemResource::collection()` cuando el recurso viaja anidado dentro de
+ * otro. Normalizar acá evita que la pantalla dependa de cuál de las dos mandó
+ * el servidor, y de que esa decisión cambie más adelante.
+ */
+function unwrap(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
 
-const history = computed(() => props.order.status_history ?? []);
+    return Array.isArray(value?.data) ? value.data : [];
+}
+
+const items = computed(() => unwrap(props.order.items));
+
+const history = computed(() => unwrap(props.order.status_history));
 
 const unitsCount = computed(() =>
     items.value.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0),

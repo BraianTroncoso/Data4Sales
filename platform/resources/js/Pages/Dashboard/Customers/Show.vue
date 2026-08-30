@@ -77,8 +77,24 @@ function isConverted(order) {
     return order.currency && order.currency !== props.currency;
 }
 
+/*
+ * Los renglones llegan envueltos en `{ data: [...] }`: es lo que produce
+ * `OrderItemResource::collection()` al viajar anidado dentro de `OrderResource`.
+ * Tratarlos como array pelado hacía que `.reduce` lanzara al expandir una orden
+ * y que el `v-for` iterara sobre el envoltorio en vez de sobre los renglones.
+ */
+function orderItems(order) {
+    const raw = order.items;
+
+    if (Array.isArray(raw)) {
+        return raw;
+    }
+
+    return Array.isArray(raw?.data) ? raw.data : [];
+}
+
 function itemsCount(order) {
-    return (order.items ?? []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+    return orderItems(order).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
 }
 
 // La cadena de la tarjeta vive una sola vez, en `.card` (app.css).
@@ -349,7 +365,7 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                                     </thead>
 
                                     <tbody class="divide-y divide-line">
-                                        <tr v-for="item in order.items ?? []" :key="item.id">
+                                        <tr v-for="item in orderItems(order)" :key="item.id">
                                             <td class="py-1.5 pr-3 font-mono text-xs text-ink-muted">
                                                 {{ item.product?.sku ?? '—' }}
                                             </td>
@@ -376,7 +392,7 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                                             </td>
                                         </tr>
 
-                                        <tr v-if="!(order.items ?? []).length">
+                                        <tr v-if="!orderItems(order).length">
                                             <td colspan="6" class="py-2 text-xs text-ink-muted">
                                                 La orden no tiene renglones cargados.
                                             </td>
