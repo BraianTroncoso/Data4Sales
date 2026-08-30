@@ -3,49 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>Consola de API — Data4Sales</title>
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=outfit:400,500,600,700|roboto:400,500&display=swap" rel="stylesheet">
 {{--
     Autocontenida a propósito: sin CDN, sin build, sin dependencias.
     Es una herramienta de evaluación, y no tiene sentido que arrastre
     un megabyte de terceros al repositorio de la entrega.
 --}}
 <style>
-:root{--bg:#0b1020;--panel:#141a2e;--panel2:#1b2340;--line:#2a3355;--txt:#e6ebff;--dim:#93a0c8;
---accent:#6ea8fe;--ok:#3ddc97;--warn:#ffc857;--err:#ff6b6b;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+:root{
+/* Paleta de marca Data4Sales escrita a mano: esta vista no pasa por Vite ni por Tailwind.
+   Tema OSCURO del producto (violeta sobre negro), muestreado del CSS de producción. */
+--bg:#121212;--surface:#181818;--panel:#181818;--panel2:#2d2d2d;--code:#0e0e0e;
+--line:#2f3237;--line-strong:#40444b;
+/* #f2f2f2 es el "blanco" de marca; el blanco puro sólo va sobre violeta. */
+--txt:#f2f2f2;--dim:#8b9197;--faint:#6b7178;
+--accent:#7340ff;--accent-hover:#8659ff;--accent-active:#2c0f7e;
+/* Violeta claro para TEXTO sobre negro: el #7340ff pleno da ~3.3:1 sobre #181818
+   y no alcanza para leer; #b9a0ff da ~8.7:1 sobre #0e0e0e. El violeta pleno
+   queda para superficies y bordes, nunca para texto. */
+--accent-txt:#b9a0ff;
+--ok:#06c996;--warn:#fea82f;--err:#ff2e00;--sky:#3a8bdf;
+/* Variantes CLARAS para texto: al invertir el tema, los tonos oscurecidos del
+   tema claro (#04815f, #8a5a06, #2a6fb0, #d92600) quedaron ilegibles sobre negro.
+   Sobre fondo oscuro los plenos sí se leen, y donde no llegaban se aclararon.
+   Medidos contra #0e0e0e (el fondo de los bloques de código, el peor caso):
+   #2ad6a8 ≈ 9.5:1 · #fea82f ≈ 10:1 · #ff5c38 ≈ 6.3:1 · #5fa5e8 ≈ 7.4:1. */
+--ok-txt:#2ad6a8;--warn-txt:#fea82f;--err-txt:#ff5c38;--sky-txt:#5fa5e8;
+/* Tintes al ~10% del acento, valores exactos de las capturas del producto. */
+--tint-sky:#182430;--tint-ok:#11241f;--tint-warn:#292115;--tint-err:#2a1410;--tint-violet:#1b1235;
+/* La elevación NO se comunica con sombra en este sistema: cada tarjeta se define
+   por un borde de 1px. El único uso de box-shadow es el halo violeta de hover. */
+--halo:0 0 24px -2px rgba(115,64,255,.35);
+--ui:"Outfit",system-ui,-apple-system,sans-serif;
+--num:"Roboto",system-ui,sans-serif;
+--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 system-ui,-apple-system,sans-serif}
-header{padding:1rem 1.25rem;border-bottom:1px solid var(--line);display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
-h1{font-size:1rem;margin:0;font-weight:600}
-.tag{font:11px var(--mono);background:var(--panel2);border:1px solid var(--line);padding:.15rem .5rem;border-radius:99px;color:var(--dim)}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
+header{padding:1rem 1.25rem;border-bottom:1px solid var(--line);background:var(--surface);
+display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+h1{font-size:1rem;margin:0;font-weight:600;letter-spacing:-.01em}
+/* El chip va sobre --code y no sobre --panel2: el gris secundario sobre #2d2d2d
+   se queda en 4.3:1, y sobre #0e0e0e sube a 6:1. */
+.tag{font:11px var(--mono);background:var(--code);border:1px solid var(--line);padding:.15rem .5rem;border-radius:8px;color:var(--dim)}
 main{display:grid;grid-template-columns:290px 1fr;min-height:calc(100vh - 57px)}
 @media(max-width:900px){main{grid-template-columns:1fr}}
-nav{border-right:1px solid var(--line);padding:.75rem;overflow-y:auto;max-height:calc(100vh - 57px)}
-.grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);margin:1rem .5rem .35rem}
+nav{border-right:1px solid var(--line);background:var(--surface);padding:.75rem;overflow-y:auto;max-height:calc(100vh - 57px)}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);margin:1rem .5rem .35rem;font-weight:600}
 .ep{display:block;width:100%;text-align:left;background:none;border:0;color:var(--txt);padding:.45rem .5rem;
-border-radius:.4rem;cursor:pointer;font-size:13px;display:flex;gap:.5rem;align-items:center}
-.ep:hover{background:var(--panel)}
-.ep.on{background:var(--panel2);box-shadow:inset 2px 0 0 var(--accent)}
-.m{font:10px var(--mono);padding:.1rem .35rem;border-radius:.25rem;min-width:38px;text-align:center}
-.m.GET{background:#1d3a5f;color:#8ec5ff}.m.POST{background:#1d4d3a;color:#7ee2b8}
+border-radius:8px;cursor:pointer;font-family:var(--ui);font-size:13px;display:flex;gap:.5rem;align-items:center}
+.ep:hover{background:var(--panel2)}
+.ep:focus-visible{outline:2px solid var(--accent-hover);outline-offset:-2px}
+.ep.on{background:var(--tint-violet);color:var(--accent-txt);font-weight:500;box-shadow:inset 2px 0 0 var(--accent)}
+.m{font:10px var(--mono);padding:.1rem .35rem;border-radius:8px;min-width:38px;text-align:center}
+/* Badges de método: tono claro sobre tinte oscuro (≈6:1 y ≈8.7:1). */
+.m.GET{background:var(--tint-sky);color:var(--sky-txt)}.m.POST{background:var(--tint-ok);color:var(--ok-txt)}
 section{padding:1.25rem;overflow-y:auto;max-height:calc(100vh - 57px)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:.6rem;padding:1rem;margin-bottom:1rem}
-.path{font:13px var(--mono);color:var(--accent);word-break:break-all}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:1.25rem;margin-bottom:1rem}
+.path{font:13px var(--mono);color:var(--accent-txt);word-break:break-all}
 .desc{color:var(--dim);font-size:13px;margin:.6rem 0 0;white-space:pre-line}
-label{display:block;font-size:11px;color:var(--dim);margin:.7rem 0 .2rem;text-transform:uppercase;letter-spacing:.05em}
-input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);
-padding:.45rem .6rem;border-radius:.35rem;font:13px var(--mono)}
+label{display:block;font-size:11px;color:var(--dim);margin:.7rem 0 .2rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+input,select,textarea{width:100%;background:var(--code);border:1px solid var(--line);color:var(--txt);
+padding:.45rem .6rem;border-radius:10px;font:13px var(--mono)}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(115,64,255,.35)}
+/* Los placeholders llevan pistas reales (batch_id, fechas), así que van con el
+   gris secundario y no con --faint, que sobre #0e0e0e se queda en 3.9:1. */
+input::placeholder{color:var(--dim)}
+/* Cuerpo del request: bloque de código, mismo tratamiento que la respuesta. */
 textarea{min-height:190px;resize:vertical;line-height:1.45}
 .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem}
-button.go{background:var(--accent);color:#08122b;border:0;padding:.55rem 1.3rem;border-radius:.4rem;
-font-weight:650;cursor:pointer;margin-top:1rem;font-size:13px}
-button.go:disabled{opacity:.5;cursor:wait}
-.meta{display:flex;gap:1rem;align-items:center;font:12px var(--mono);margin-bottom:.6rem;flex-wrap:wrap}
-.s2{color:var(--ok)}.s4{color:var(--warn)}.s5{color:var(--err)}
-pre{background:#080d1c;border:1px solid var(--line);border-radius:.45rem;padding:.85rem;overflow:auto;
-max-height:60vh;font:12px/1.5 var(--mono);margin:0}
-.k{color:#8ec5ff}.v-s{color:#7ee2b8}.v-n{color:#ffc857}.v-b{color:#c792ea}
+/* Acción principal: píldora violeta con blanco puro (≈5.4:1), el único lugar
+   donde se usa #ffffff. */
+button.go{background:var(--accent);color:#ffffff;border:0;padding:.75rem 1.75rem;border-radius:999px;
+font-family:var(--ui);font-weight:600;cursor:pointer;margin-top:1rem;font-size:13px;min-height:44px;
+transition:background-color .15s ease,box-shadow .15s ease}
+button.go:hover{background:var(--accent-hover);box-shadow:var(--halo)}
+button.go:active{background:var(--accent-active);box-shadow:none}
+/* El CSS de producción de la marca no define foco en ningún botón: este anillo
+   es decisión nuestra y se conserva. */
+button.go:focus-visible{outline:2px solid var(--accent-hover);outline-offset:3px}
+button.go:disabled{opacity:.5;cursor:wait;box-shadow:none}
+.meta{display:flex;gap:1rem;align-items:center;font:12px var(--num);margin-bottom:.6rem;flex-wrap:wrap}
+/* Status HTTP: 2xx verde claro, 4xx ámbar, 5xx rojo aclarado. El #ff2e00 pleno
+   da 4.7:1 sobre #181818 y se rompe en cuanto cae sobre el tinte; #ff5c38 no. */
+.s2{color:var(--ok-txt);font-weight:500}.s4{color:var(--warn-txt);font-weight:500}.s5{color:var(--err-txt);font-weight:500}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:.85rem;overflow:auto;
+max-height:60vh;font:12px/1.5 var(--mono);color:var(--txt);margin:0}
+/* Resaltado de JSON: cuatro matices distinguibles y todos ≥6:1 sobre #0e0e0e.
+   Clave violeta claro, string verde, número ámbar, booleano/null azul de dato. */
+.k{color:var(--accent-txt)}.v-s{color:var(--ok-txt)}.v-n{color:var(--warn-txt)}.v-b{color:var(--sky-txt)}
 .hint{color:var(--dim);font-size:12px;margin-top:.4rem}
-.hint code{background:var(--panel2);padding:.05rem .3rem;border-radius:.2rem;font-size:11px}
+.hint code{background:var(--code);border:1px solid var(--line);padding:.05rem .3rem;border-radius:8px;font-size:11px}
 </style>
 </head>
 <body>

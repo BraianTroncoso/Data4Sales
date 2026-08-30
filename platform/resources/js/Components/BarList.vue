@@ -4,7 +4,7 @@ import { computed } from 'vue';
 const props = defineProps({
     // [{ key?, label, value, formatted, meta, hint, color }]
     items: { type: Array, default: () => [] },
-    color: { type: String, default: '#4f46e5' },
+    color: { type: String, default: '#7340ff' },
     // Ancho de la columna de la derecha; se fija para que los valores queden alineados.
     metaWidth: { type: String, default: '6rem' },
 });
@@ -28,34 +28,34 @@ function width(item) {
 </script>
 
 <template>
-    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+    <ul class="divide-y divide-line">
         <li v-for="(item, index) in items" :key="item.key ?? item.label ?? index" class="py-2.5">
             <div class="flex items-baseline justify-between gap-3">
                 <span
-                    class="truncate text-sm text-gray-700 dark:text-gray-300"
+                    class="truncate text-sm text-ink-soft"
                     :title="item.hint ?? item.label"
                 >
                     {{ item.label }}
                 </span>
 
                 <span
-                    class="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100"
+                    class="shrink-0 text-sm font-medium tabular-nums text-ink"
                 >
                     {{ item.formatted }}
                 </span>
             </div>
 
             <div class="mt-1.5 flex items-center gap-3">
-                <div class="h-1.5 flex-1 rounded-full bg-gray-100 dark:bg-gray-700">
+                <div class="h-1.5 flex-1 rounded-pill bg-raised">
                     <div
-                        class="h-1.5 rounded-full transition-[width] duration-300"
+                        class="h-1.5 rounded-pill transition-[width] duration-300"
                         :style="{ width: width(item), backgroundColor: item.color ?? color }"
                     />
                 </div>
 
                 <span
                     v-if="item.meta"
-                    class="shrink-0 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400"
+                    class="shrink-0 text-right text-xs tabular-nums text-ink-muted"
                     :style="{ width: metaWidth }"
                 >
                     {{ item.meta }}

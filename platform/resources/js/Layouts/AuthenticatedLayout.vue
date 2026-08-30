@@ -37,18 +37,21 @@ const flash = computed(() => page.props.flash?.status ?? null);
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div class="min-h-screen bg-canvas">
         <nav
-            class="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+            class="border-b border-line bg-surface"
         >
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex h-16 justify-between">
                     <div class="flex">
                         <div class="flex shrink-0 items-center gap-3">
                             <Link :href="route('dashboard')">
-                                <ApplicationLogo
-                                    class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-200"
-                                />
+                                <!--
+                                    Sólo tamaño. El símbolo de marca trae sus
+                                    propios colores; heredar el color de texto
+                                    del contenedor lo teñía de gris.
+                                -->
+                                <ApplicationLogo class="block h-9 w-auto" />
                             </Link>
 
                             <!--
@@ -59,11 +62,11 @@ const flash = computed(() => page.props.flash?.status ?? null);
                             -->
                             <span
                                 v-if="tenant"
-                                class="hidden items-center gap-1.5 rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 sm:inline-flex dark:bg-gray-700 dark:text-gray-200"
+                                class="hidden items-center gap-1.5 rounded-chip border border-line bg-canvas px-2.5 py-1 text-xs font-medium text-ink-soft sm:inline-flex"
                                 :title="`Zona horaria ${tenant.timezone} · moneda de reporte ${tenant.currency}`"
                             >
                                 {{ tenant.name }}
-                                <span class="text-gray-400 dark:text-gray-500"
+                                <span class="text-ink-muted"
                                     >· {{ tenant.currency }}</span
                                 >
                             </span>
@@ -84,15 +87,21 @@ const flash = computed(() => page.props.flash?.status ?? null);
                     <div class="hidden sm:ms-6 sm:flex sm:items-center">
                         <Dropdown v-if="user" align="right" width="48">
                             <template #trigger>
-                                <span class="inline-flex rounded-md">
+                                <span class="inline-flex rounded-field">
+                                    <!--
+                                        El anillo de foco compartido reemplaza
+                                        al outline anulado sin reemplazo: el
+                                        disparador del menú no tenía ningún
+                                        indicador de foco visible.
+                                    -->
                                     <button
                                         type="button"
-                                        class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                                        class="focus-ring inline-flex items-center rounded-field border border-transparent bg-surface px-3 py-2 text-sm font-medium leading-4 text-ink-muted transition duration-150 ease-in-out hover:text-ink"
                                     >
                                         <span class="text-start">
                                             {{ user.name }}
                                             <span
-                                                class="block text-xs text-gray-400 dark:text-gray-500"
+                                                class="block text-xs text-ink-muted"
                                                 >{{ user.role_label }}</span
                                             >
                                         </span>
@@ -131,7 +140,7 @@ const flash = computed(() => page.props.flash?.status ?? null);
                     <div class="-me-2 flex items-center sm:hidden">
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:text-gray-500 dark:hover:bg-gray-900 dark:hover:text-gray-400"
+                            class="focus-ring inline-flex items-center justify-center rounded-field p-2 text-ink-muted transition duration-150 ease-in-out hover:bg-raised hover:text-ink focus:bg-raised focus:text-ink"
                             @click="
                                 showingNavigationDropdown =
                                     !showingNavigationDropdown
@@ -189,20 +198,20 @@ const flash = computed(() => page.props.flash?.status ?? null);
 
                 <div
                     v-if="user"
-                    class="border-t border-gray-200 pb-1 pt-4 dark:border-gray-600"
+                    class="border-t border-line pb-1 pt-4"
                 >
                     <div class="px-4">
                         <div
-                            class="text-base font-medium text-gray-800 dark:text-gray-200"
+                            class="text-base font-medium text-ink"
                         >
                             {{ user.name }}
                         </div>
-                        <div class="text-sm font-medium text-gray-500">
+                        <div class="text-sm font-medium text-ink-muted">
                             {{ user.email }} · {{ user.role_label }}
                         </div>
                         <div
                             v-if="tenant"
-                            class="mt-1 text-xs font-medium text-gray-400"
+                            class="mt-1 text-xs font-medium text-ink-muted"
                         >
                             {{ tenant.name }}
                         </div>
@@ -224,7 +233,10 @@ const flash = computed(() => page.props.flash?.status ?? null);
             </div>
         </nav>
 
-        <header v-if="$slots.header" class="bg-white shadow dark:bg-gray-800">
+        <header
+            v-if="$slots.header"
+            class="bg-surface shadow-card"
+        >
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <slot name="header" />
             </div>
@@ -235,7 +247,7 @@ const flash = computed(() => page.props.flash?.status ?? null);
             class="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"
         >
             <div
-                class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                class="rounded-card border border-success-100 bg-success-50 px-4 py-2 text-sm text-success-700"
             >
                 {{ flash }}
             </div>

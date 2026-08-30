@@ -7,17 +7,44 @@ import EmptyState from '@/Components/EmptyState.vue';
 import Money from '@/Components/Money.vue';
 import SelectInput from '@/Components/SelectInput.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { formatDateTime, formatNumber } from '@/Support/format';
+import { formatDate, formatNumber } from '@/Support/format';
 
 const props = defineProps({
     tenant: { type: Object, required: true },
     customers: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     segmentOptions: { type: Array, default: () => [] },
+    // Catálogo de países del TENANT (ISO-2, ordenado, sin nulls). Puede no
+    // venir todavía: mientras no venga, el filtro se muestra igual.
+    countryOptions: { type: Array, default: null },
+    // Tamaños de página que el servidor acepta de verdad. Que la lista viva allá
+    // evita que la pantalla ofrezca un valor que el backend después descarta.
+    perPageOptions: { type: Array, default: null },
     currency: { type: String, required: true },
 });
 
 const rows = computed(() => props.customers?.data ?? []);
+
+/*
+ * El listado mostraba el enum crudo en inglés (`potential_loyalist`) mientras el
+ * filtro de arriba ofrecía "Potenciales leales": el usuario filtraba por una
+ * palabra y la fila le contestaba con otra.
+ *
+ * La traducción sale de `segmentOptions`, que esta misma pantalla ya recibe con
+ * value+label. Resolverlo acá evita meter texto en español en `CustomerResource`,
+ * que está compartido con la API pública v1.
+ */
+const segmentLabels = computed(() =>
+    Object.fromEntries(props.segmentOptions.map((option) => [option.value, option.label])),
+);
+
+function segmentLabel(value) {
+    if (!value) {
+        return '—';
+    }
+
+    return segmentLabels.value[value] ?? value;
+}
 
 const q = ref(props.filters.q ?? '');
 const segment = ref(props.filters.segment ?? '');
@@ -138,17 +165,49 @@ const EMAIL_STATUS_OPTIONS = [
     { value: 'missing', label: 'Sin email' },
 ];
 
-const PER_PAGE_OPTIONS = [
-    { value: 25, label: '25 por página' },
-    { value: 50, label: '50 por página' },
-    { value: 100, label: '100 por página' },
-];
+const FALLBACK_PER_PAGE = [25, 50, 100];
 
-// Los países visibles alimentan un datalist: no hay endpoint de catálogo y sugerir
-// lo que está a la vista es mejor que un input a ciegas.
-const countrySuggestions = computed(() =>
-    [...new Set(rows.value.map((row) => row.country).filter(Boolean))].sort(),
+const perPageChoices = computed(() =>
+    (props.perPageOptions ?? FALLBACK_PER_PAGE).map((value) => ({
+        value,
+        label: `${value} por página`,
+    })),
 );
+
+/*
+ * Catálogo de países. Si el servidor manda el catálogo del tenant lo usamos; si
+ * no, caemos a los países de la página actual, que es lo que había antes.
+ * La diferencia importa: con el catálogo del tenant la lista es estable, y sin
+ * él las sugerencias cambian según dónde estés paginando.
+ */
+const countryChoices = computed(() => {
+    if (Array.isArray(props.countryOptions)) {
+        return [...props.countryOptions].filter(Boolean).sort();
+    }
+
+    return [...new Set(rows.value.map((row) => row.country).filter(Boolean))].sort();
+});
+
+/*
+ * Un filtro que ofrece un solo valor no filtra nada: ocupa lugar y sugiere que
+ * hay algo para elegir. Casa Luna, por ejemplo, tiene sus 401 clientes en AR.
+ *
+ * Pero el filtro sólo se esconde con el catálogo del TENANT en la mano, nunca
+ * deduciéndolo de la página visible. MegaRetail es el contraejemplo medido:
+ * 122.400 clientes en ES y exactamente 1 en AR. Mirando la primera página se
+ * concluiría "un solo país", se escondería el filtro, y ese cliente pasaría a
+ * ser inencontrable.
+ *
+ * Mientras el servidor no mande `filters.countries`, el filtro se muestra: es
+ * el lado seguro del error.
+ */
+const showCountryFilter = computed(() => {
+    if (!Array.isArray(props.countryOptions)) {
+        return true;
+    }
+
+    return countryChoices.value.length > 1 || country.value !== '';
+});
 
 function recencyLabel(days) {
     if (days === null || days === undefined) {
@@ -158,9 +217,12 @@ function recencyLabel(days) {
     return `${formatNumber(days)} d`;
 }
 
+// `field-label` trae `display:block`: en un <th> eso rompería el layout de la tabla,
+// así que la utilidad `table-cell` (capa utilities, gana sobre components) lo restituye.
+// La densidad es la misma que la tabla de Usuarios: px-4 py-2.5 en th y td.
 const thClass =
-    'whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400';
-const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300';
+    'field-label table-cell whitespace-nowrap px-4 py-2.5 text-left uppercase';
+const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
 </script>
 
 <template>
@@ -169,18 +231,22 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <h2 class="text-xl font-semibold leading-tight text-ink">
                     Datos de clientes
                 </h2>
 
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ tenant.name }}</p>
+                <p class="text-sm text-ink-muted">{{ tenant.name }}</p>
             </div>
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+                <!--
+                    La barra de filtros va sin sombra: es una superficie de trabajo, no una
+                    tarjeta de contenido. La sombra de marca se reserva para la tabla.
+                -->
                 <div
-                    class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    class="rounded-card border border-line bg-surface p-4"
                 >
                     <!--
                         La búsqueda es la acción principal: un agente de soporte llega con un
@@ -188,16 +254,13 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                     -->
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
                         <div class="flex-1">
-                            <label
-                                for="customers-search"
-                                class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                            >
+                            <label for="customers-search" class="field-label">
                                 Buscar cliente
                             </label>
 
                             <div class="relative mt-1">
                                 <svg
-                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -215,22 +278,19 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     autofocus
                                     autocomplete="off"
                                     placeholder="Email, nombre o identificador externo"
-                                    class="block w-full py-2 pl-9 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"
+                                    class="field block py-2 pl-9"
                                 />
                             </div>
                         </div>
 
                         <div class="flex flex-wrap items-end gap-3">
                             <div>
-                                <label
-                                    for="customers-segment"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-segment" class="field-label">
                                     Segmento
                                 </label>
                                 <SelectInput
                                     id="customers-segment"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="segment"
                                     :options="segmentOptions"
                                     placeholder="Todos"
@@ -238,11 +298,8 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                 />
                             </div>
 
-                            <div>
-                                <label
-                                    for="customers-country"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                            <div v-if="showCountryFilter">
+                                <label for="customers-country" class="field-label">
                                     País
                                 </label>
                                 <input
@@ -250,42 +307,36 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     v-model="country"
                                     list="customers-country-options"
                                     placeholder="AR, CL…"
-                                    class="mt-1 block w-24 rounded-md border-gray-300 py-2 text-sm uppercase shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"
+                                    class="field mt-1 block w-24 py-2 uppercase"
                                 />
                                 <datalist id="customers-country-options">
-                                    <option v-for="code in countrySuggestions" :key="code" :value="code" />
+                                    <option v-for="code in countryChoices" :key="code" :value="code" />
                                 </datalist>
                             </div>
 
                             <div>
-                                <label
-                                    for="customers-email-status"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-email-status" class="field-label">
                                     Estado del email
                                 </label>
                                 <SelectInput
                                     id="customers-email-status"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="emailStatus"
                                     :options="EMAIL_STATUS_OPTIONS"
-                                    placeholder="Cualquiera"
+                                    placeholder="Todos"
                                     @update:model-value="(value) => setFilter('email_status', value)"
                                 />
                             </div>
 
                             <div>
-                                <label
-                                    for="customers-per-page"
-                                    class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                                >
+                                <label for="customers-per-page" class="field-label">
                                     Filas
                                 </label>
                                 <SelectInput
                                     id="customers-per-page"
-                                    class="mt-1 block"
+                                    class="field mt-1 block"
                                     :model-value="perPage"
-                                    :options="PER_PAGE_OPTIONS"
+                                    :options="perPageChoices"
                                     @update:model-value="(value) => setFilter('per_page', value)"
                                 />
                             </div>
@@ -293,7 +344,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             <button
                                 v-if="hasActiveFilters"
                                 type="button"
-                                class="pb-2.5 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                class="focus-ring rounded-pill pb-2.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
                                 @click="resetFilters"
                             >
                                 Limpiar filtros
@@ -302,12 +353,10 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                     </div>
                 </div>
 
-                <div
-                    class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                >
+                <div class="card overflow-hidden">
                     <div v-if="rows.length" class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-900/40">
+                        <table class="min-w-full divide-y divide-line">
+                            <thead class="bg-canvas">
                                 <tr>
                                     <th
                                         v-for="field in ['external_id', 'name']"
@@ -317,7 +366,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     >
                                         <button
                                             type="button"
-                                            class="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                                            class="focus-ring inline-flex items-center gap-1 rounded-chip hover:text-ink"
                                             :title="`Ordenar por ${SORTABLE[field]}`"
                                             @click="sortBy(field)"
                                         >
@@ -340,38 +389,36 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     <th scope="col" :class="[thClass, 'text-right']">Órdenes</th>
                                     <th scope="col" :class="[thClass, 'text-right']">Total neto</th>
                                     <th scope="col" :class="[thClass, 'text-right']">Ticket prom.</th>
-                                    <th scope="col" :class="[thClass, 'text-right']">Recencia</th>
-                                    <th scope="col" :class="thClass">
+                                    <th scope="col" :class="[thClass, 'text-right']">
                                         <button
                                             type="button"
-                                            class="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200"
+                                            class="focus-ring inline-flex items-center gap-1 rounded-chip hover:text-ink"
                                             title="Ordenar por última actividad"
                                             @click="sortBy('last_seen_at')"
                                         >
-                                            Última actividad
+                                            Actividad
                                             <span v-if="sort === 'last_seen_at'" aria-hidden="true">
                                                 {{ direction === 'asc' ? '↑' : '↓' }}
                                             </span>
                                         </button>
                                     </th>
-                                    <th scope="col" class="px-3 py-2"><span class="sr-only">Ver</span></th>
                                 </tr>
                             </thead>
 
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tbody class="divide-y divide-line">
                                 <tr
                                     v-for="customer in rows"
                                     :key="customer.id"
-                                    class="hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                    class="hover:bg-raised"
                                 >
-                                    <td :class="[tdClass, 'font-mono text-xs text-gray-500 dark:text-gray-400']">
+                                    <td :class="[tdClass, 'font-mono text-xs text-ink-muted']">
                                         {{ customer.external_id }}
                                     </td>
 
                                     <td :class="tdClass">
                                         <Link
                                             :href="route('dashboard.customers.show', customer.id)"
-                                            class="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                                            class="focus-ring rounded-chip font-medium text-brand-600 hover:text-brand-700 hover:underline"
                                         >
                                             {{ customer.name || 'Sin nombre' }}
                                         </Link>
@@ -392,7 +439,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                     <td :class="tdClass">{{ customer.country || '—' }}</td>
 
                                     <td :class="tdClass">
-                                        {{ customer.metrics?.segment ?? '—' }}
+                                        {{ segmentLabel(customer.metrics?.segment) }}
                                     </td>
 
                                     <td :class="[tdClass, 'text-right tabular-nums']">
@@ -400,7 +447,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                             :title="`${customer.metrics?.net_orders_count ?? 0} netas sobre ${customer.metrics?.orders_count ?? 0} totales`"
                                         >
                                             {{ formatNumber(customer.metrics?.net_orders_count) }}
-                                            <span class="text-gray-400 dark:text-gray-500">
+                                            <span class="text-ink-muted">
                                                 / {{ formatNumber(customer.metrics?.orders_count) }}
                                             </span>
                                         </span>
@@ -420,21 +467,13 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                                         />
                                     </td>
 
-                                    <td :class="[tdClass, 'text-right tabular-nums']">
-                                        {{ recencyLabel(customer.metrics?.recency_days) }}
-                                    </td>
-
-                                    <td :class="[tdClass, 'text-gray-500 dark:text-gray-400']">
-                                        {{ formatDateTime(customer.last_seen_at, { timeZone: tenant.timezone }) }}
-                                    </td>
-
-                                    <td class="px-3 py-2 text-right">
-                                        <Link
-                                            :href="route('dashboard.customers.show', customer.id)"
-                                            class="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                                        >
-                                            Ver
-                                        </Link>
+                                    <td :class="[tdClass, 'text-right']">
+                                        <span class="block tabular-nums text-ink">
+                                            {{ recencyLabel(customer.metrics?.recency_days) }}
+                                        </span>
+                                        <span class="block text-xs text-ink-muted">
+                                            {{ formatDate(customer.last_seen_at, { timeZone: tenant.timezone }) }}
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -449,7 +488,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                             <button
                                 v-if="hasActiveFilters"
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-canvas"
                                 @click="resetFilters"
                             >
                                 Limpiar filtros
@@ -462,7 +501,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                         conoce (y contarlo en cada request sobre una tabla grande se paga caro).
                     -->
                     <div
-                        class="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                        class="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-xs text-ink-muted"
                     >
                         <p>
                             {{ formatNumber(rows.length) }} clientes en esta página · email
@@ -472,7 +511,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
                         <div class="flex items-center gap-2">
                             <button
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 font-medium text-gray-700 transition enabled:hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:enabled:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 font-medium text-ink-soft transition enabled:hover:bg-canvas disabled:bg-raised disabled:text-ink-muted disabled:border-line"
                                 :disabled="!customers.prev_cursor"
                                 @click="apply({ cursor: customers.prev_cursor })"
                             >
@@ -481,7 +520,7 @@ const tdClass = 'whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gra
 
                             <button
                                 type="button"
-                                class="rounded-md border border-gray-300 px-3 py-1.5 font-medium text-gray-700 transition enabled:hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:enabled:hover:bg-gray-700"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 font-medium text-ink-soft transition enabled:hover:bg-canvas disabled:bg-raised disabled:text-ink-muted disabled:border-line"
                                 :disabled="!customers.next_cursor"
                                 @click="apply({ cursor: customers.next_cursor })"
                             >

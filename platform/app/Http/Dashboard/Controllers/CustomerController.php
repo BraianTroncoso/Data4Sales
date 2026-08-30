@@ -34,6 +34,17 @@ class CustomerController extends Controller
 {
     private const PER_PAGE = 25;
 
+    /**
+     * Las únicas densidades que acepta el listado.
+     *
+     * Lista blanca y no un entero libre: `per_page` viaja en la URL, y sin
+     * tope alguien pide cien mil y se lleva el padrón entero en una sola
+     * respuesta — que es justo lo que el enmascarado del email intenta evitar.
+     *
+     * @var list<int>
+     */
+    private const PER_PAGE_OPTIONS = [25, 50, 100];
+
     public function __construct(
         private readonly CustomerSearch $search,
         private readonly TenantContext $context,
@@ -41,6 +52,13 @@ class CustomerController extends Controller
 
     public function index(Request $request): Response
     {
+        // Fuera de la lista blanca se vuelve al default en silencio, sin 422:
+        // un `per_page` raro en la URL es un enlace viejo o un dedo, no un
+        // ataque, y romperle la pantalla al agente no arregla nada.
+        $perPage = in_array($request->integer('per_page'), self::PER_PAGE_OPTIONS, strict: true)
+            ? $request->integer('per_page')
+            : self::PER_PAGE;
+
         $filters = [
             'q' => (string) $request->query('q', ''),
             'segment' => $request->query('segment'),
@@ -48,10 +66,13 @@ class CustomerController extends Controller
             'email_status' => $request->query('email_status'),
             'sort' => $request->query('sort', 'last_seen_at'),
             'direction' => $request->query('direction', 'desc'),
+            // Vuelve resuelto, no como llegó: la pantalla tiene que poder
+            // marcar la opción activa aunque la URL no traiga nada.
+            'per_page' => $perPage,
         ];
 
         $page = $this->search->build($filters)
-            ->cursorPaginate(self::PER_PAGE)
+            ->cursorPaginate($perPage)
             ->withQueryString();
 
         return Inertia::render('Dashboard/Customers/Index', [
@@ -62,6 +83,11 @@ class CustomerController extends Controller
                 static fn (RfmSegment $s) => ['value' => $s->value, 'label' => $s->label()],
                 RfmSegment::cases(),
             ),
+            // Los países que este tenant tiene de verdad. Con uno solo el
+            // filtro sobra y la pantalla lo esconde; la decisión se toma acá
+            // con el padrón entero y no allá con la página visible.
+            'countryOptions' => $this->search->countries(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
             'customers' => [
                 'data' => CustomerResource::collection($page->items())->resolve(),
                 'next_cursor' => $page->nextCursor()?->encode(),
@@ -73,7 +99,7 @@ class CustomerController extends Controller
     public function show(string $customer): Response
     {
         $model = Customer::query()
-            ->with(['metrics', 'orders' => fn ($q) => $q->with('items.product')->latest('placed_at')->limit(200)])
+            ->with(['metrics', 'orders' => fn ($q) => $q->with(['items.product', 'statusHistory'])->latest('placed_at')->limit(200)])
             ->find($customer);
 
         // Un cliente de otro tenant es invisible por Row-Level Security antes

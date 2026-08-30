@@ -8,19 +8,13 @@ import { Head } from '@inertiajs/vue3';
 
     <AuthenticatedLayout>
         <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Dashboard
-            </h2>
+            <h2 class="text-xl font-semibold leading-tight text-ink">Dashboard</h2>
         </template>
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div
-                    class="overflow-hidden bg-white shadow-sm sm:rounded-lg"
-                >
-                    <div class="p-6 text-gray-900">
+                <div class="card overflow-hidden">
+                    <div class="p-6 text-ink">
                         You're logged in!
                     </div>
                 </div>

@@ -35,15 +35,12 @@ const submit = () => {
     <GuestLayout>
         <Head title="Recuperar contraseña" />
 
-        <div class="mb-4 text-sm text-gray-600">
+        <div class="mb-4 text-sm text-ink-muted">
             Indicá tu organización y tu email y te mandamos un enlace para
             elegir una contraseña nueva.
         </div>
 
-        <div
-            v-if="status"
-            class="mb-4 text-sm font-medium text-green-600"
-        >
+        <div v-if="status" class="mb-4 text-sm font-medium text-success-600">
             {{ status }}
         </div>
 
@@ -62,7 +59,7 @@ const submit = () => {
                     placeholder="luna"
                 />
 
-                <p class="mt-1 text-xs text-gray-500">
+                <p class="mt-1 text-xs text-ink-muted">
                     El identificador corto de tu retailer.
                 </p>
 
@@ -85,10 +82,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4 flex items-center justify-end">
-                <PrimaryButton
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
+                <PrimaryButton :disabled="form.processing">
                     Enviar enlace
                 </PrimaryButton>
             </div>

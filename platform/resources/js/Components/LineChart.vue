@@ -206,11 +206,11 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
             <span
                 v-for="line in lines"
                 :key="line.key"
-                class="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400"
+                class="inline-flex items-center gap-1.5 text-xs text-ink-muted"
             >
                 <span class="h-0.5 w-4 rounded" :style="{ backgroundColor: line.color }" />
                 {{ line.label }}
-                <span class="text-gray-400 dark:text-gray-500">
+                <span class="text-ink-muted">
                     ({{ line.axis === 'right' ? 'eje der.' : 'eje izq.' }})
                 </span>
             </span>
@@ -242,7 +242,7 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
             </defs>
 
             <!-- Grilla horizontal tomada del eje izquierdo: dos grillas superpuestas serían ruido. -->
-            <g class="text-gray-200 dark:text-gray-700">
+            <g class="text-line">
                 <line
                     v-for="tick in leftDomain.ticks"
                     :key="`grid-${tick}`"
@@ -255,7 +255,7 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
                 />
             </g>
 
-            <g class="fill-current text-gray-500 dark:text-gray-400" font-size="11">
+            <g class="fill-current text-ink-muted" font-size="11">
                 <text
                     v-for="tick in leftDomain.ticks"
                     :key="`left-${tick}`"
@@ -327,7 +327,7 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
                     :x2="xAt(hoverIndex)"
                     :y1="MARGIN.top"
                     :y2="MARGIN.top + innerH"
-                    class="text-gray-400 dark:text-gray-500"
+                    class="text-ink-faint"
                     stroke="currentColor"
                     stroke-width="1"
                     stroke-dasharray="3 3"
@@ -340,7 +340,7 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
                     :cy="yAt(series[hoverIndex][line.key], domainOf(line))"
                     r="3.5"
                     :fill="line.color"
-                    class="stroke-white dark:stroke-gray-800"
+                    class="stroke-surface"
                     stroke-width="1.5"
                 />
             </g>
@@ -350,7 +350,7 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
                 :x2="VIEW_W - MARGIN.right"
                 :y1="MARGIN.top + innerH"
                 :y2="MARGIN.top + innerH"
-                class="text-gray-300 dark:text-gray-600"
+                class="text-line-strong"
                 stroke="currentColor"
                 stroke-width="1"
             />
@@ -358,23 +358,23 @@ const uid = `chart-${(sequence += 1)}-${Math.random().toString(36).slice(2, 8)}`
 
         <div
             v-if="hoverRow"
-            class="pointer-events-none absolute top-8 z-10 min-w-[10rem] rounded-md border border-gray-200 bg-white/95 p-2 text-xs shadow-lg backdrop-blur dark:border-gray-600 dark:bg-gray-900/95"
+            class="pointer-events-none absolute top-8 z-10 min-w-[10rem] rounded-chip border border-line bg-surface p-2 text-xs shadow-pop"
             :style="tooltipStyle"
         >
-            <p class="font-medium text-gray-900 dark:text-gray-100">
+            <p class="font-medium text-ink">
                 {{ formatX(hoverRow[xKey]) }}
             </p>
 
             <p
                 v-for="line in lines"
                 :key="`tip-${line.key}`"
-                class="mt-1 flex items-center justify-between gap-3 text-gray-600 dark:text-gray-300"
+                class="mt-1 flex items-center justify-between gap-3 text-ink-muted"
             >
                 <span class="inline-flex items-center gap-1.5">
                     <span class="h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: line.color }" />
                     {{ line.label }}
                 </span>
-                <span class="font-medium tabular-nums text-gray-900 dark:text-gray-100">
+                <span class="font-medium tabular-nums text-ink">
                     {{ formatFor(line, hoverRow[line.key]) }}
                 </span>
             </p>
