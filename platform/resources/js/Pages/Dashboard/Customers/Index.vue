@@ -7,17 +7,41 @@ import EmptyState from '@/Components/EmptyState.vue';
 import Money from '@/Components/Money.vue';
 import SelectInput from '@/Components/SelectInput.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { formatDateTime, formatNumber } from '@/Support/format';
+import { formatDate, formatNumber } from '@/Support/format';
 
 const props = defineProps({
     tenant: { type: Object, required: true },
     customers: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     segmentOptions: { type: Array, default: () => [] },
+    // Catálogo de países del TENANT (ISO-2, ordenado, sin nulls). Puede no
+    // venir todavía: mientras no venga, el filtro se muestra igual.
+    countryOptions: { type: Array, default: null },
     currency: { type: String, required: true },
 });
 
 const rows = computed(() => props.customers?.data ?? []);
+
+/*
+ * El listado mostraba el enum crudo en inglés (`potential_loyalist`) mientras el
+ * filtro de arriba ofrecía "Potenciales leales": el usuario filtraba por una
+ * palabra y la fila le contestaba con otra.
+ *
+ * La traducción sale de `segmentOptions`, que esta misma pantalla ya recibe con
+ * value+label. Resolverlo acá evita meter texto en español en `CustomerResource`,
+ * que está compartido con la API pública v1.
+ */
+const segmentLabels = computed(() =>
+    Object.fromEntries(props.segmentOptions.map((option) => [option.value, option.label])),
+);
+
+function segmentLabel(value) {
+    if (!value) {
+        return '—';
+    }
+
+    return segmentLabels.value[value] ?? value;
+}
 
 const q = ref(props.filters.q ?? '');
 const segment = ref(props.filters.segment ?? '');
@@ -144,11 +168,40 @@ const PER_PAGE_OPTIONS = [
     { value: 100, label: '100 por página' },
 ];
 
-// Los países visibles alimentan un datalist: no hay endpoint de catálogo y sugerir
-// lo que está a la vista es mejor que un input a ciegas.
-const countrySuggestions = computed(() =>
-    [...new Set(rows.value.map((row) => row.country).filter(Boolean))].sort(),
-);
+/*
+ * Catálogo de países. Si el servidor manda el catálogo del tenant lo usamos; si
+ * no, caemos a los países de la página actual, que es lo que había antes.
+ * La diferencia importa: con el catálogo del tenant la lista es estable, y sin
+ * él las sugerencias cambian según dónde estés paginando.
+ */
+const countryChoices = computed(() => {
+    if (Array.isArray(props.countryOptions)) {
+        return [...props.countryOptions].filter(Boolean).sort();
+    }
+
+    return [...new Set(rows.value.map((row) => row.country).filter(Boolean))].sort();
+});
+
+/*
+ * Un filtro que ofrece un solo valor no filtra nada: ocupa lugar y sugiere que
+ * hay algo para elegir. Casa Luna, por ejemplo, tiene sus 401 clientes en AR.
+ *
+ * Pero el filtro sólo se esconde con el catálogo del TENANT en la mano, nunca
+ * deduciéndolo de la página visible. MegaRetail es el contraejemplo medido:
+ * 122.400 clientes en ES y exactamente 1 en AR. Mirando la primera página se
+ * concluiría "un solo país", se escondería el filtro, y ese cliente pasaría a
+ * ser inencontrable.
+ *
+ * Mientras el servidor no mande `filters.countries`, el filtro se muestra: es
+ * el lado seguro del error.
+ */
+const showCountryFilter = computed(() => {
+    if (!Array.isArray(props.countryOptions)) {
+        return true;
+    }
+
+    return countryChoices.value.length > 1 || country.value !== '';
+});
 
 function recencyLabel(days) {
     if (days === null || days === undefined) {
@@ -239,7 +292,7 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                 />
                             </div>
 
-                            <div>
+                            <div v-if="showCountryFilter">
                                 <label for="customers-country" class="field-label">
                                     País
                                 </label>
@@ -251,7 +304,7 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                     class="field mt-1 block w-24 py-2 uppercase"
                                 />
                                 <datalist id="customers-country-options">
-                                    <option v-for="code in countrySuggestions" :key="code" :value="code" />
+                                    <option v-for="code in countryChoices" :key="code" :value="code" />
                                 </datalist>
                             </div>
 
@@ -330,21 +383,19 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                     <th scope="col" :class="[thClass, 'text-right']">Órdenes</th>
                                     <th scope="col" :class="[thClass, 'text-right']">Total neto</th>
                                     <th scope="col" :class="[thClass, 'text-right']">Ticket prom.</th>
-                                    <th scope="col" :class="[thClass, 'text-right']">Recencia</th>
-                                    <th scope="col" :class="thClass">
+                                    <th scope="col" :class="[thClass, 'text-right']">
                                         <button
                                             type="button"
                                             class="focus-ring inline-flex items-center gap-1 rounded-chip hover:text-ink"
                                             title="Ordenar por última actividad"
                                             @click="sortBy('last_seen_at')"
                                         >
-                                            Última actividad
+                                            Actividad
                                             <span v-if="sort === 'last_seen_at'" aria-hidden="true">
                                                 {{ direction === 'asc' ? '↑' : '↓' }}
                                             </span>
                                         </button>
                                     </th>
-                                    <th scope="col" class="px-4 py-2.5"><span class="sr-only">Ver</span></th>
                                 </tr>
                             </thead>
 
@@ -382,7 +433,7 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                     <td :class="tdClass">{{ customer.country || '—' }}</td>
 
                                     <td :class="tdClass">
-                                        {{ customer.metrics?.segment ?? '—' }}
+                                        {{ segmentLabel(customer.metrics?.segment) }}
                                     </td>
 
                                     <td :class="[tdClass, 'text-right tabular-nums']">
@@ -410,21 +461,13 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                         />
                                     </td>
 
-                                    <td :class="[tdClass, 'text-right tabular-nums']">
-                                        {{ recencyLabel(customer.metrics?.recency_days) }}
-                                    </td>
-
-                                    <td :class="[tdClass, 'text-ink-muted']">
-                                        {{ formatDateTime(customer.last_seen_at, { timeZone: tenant.timezone }) }}
-                                    </td>
-
-                                    <td class="px-4 py-2.5 text-right">
-                                        <Link
-                                            :href="route('dashboard.customers.show', customer.id)"
-                                            class="focus-ring rounded-chip text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
-                                        >
-                                            Ver
-                                        </Link>
+                                    <td :class="[tdClass, 'text-right']">
+                                        <span class="block tabular-nums text-ink">
+                                            {{ recencyLabel(customer.metrics?.recency_days) }}
+                                        </span>
+                                        <span class="block text-xs text-ink-muted">
+                                            {{ formatDate(customer.last_seen_at, { timeZone: tenant.timezone }) }}
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>

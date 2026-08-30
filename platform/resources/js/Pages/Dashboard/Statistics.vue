@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import BarList from '@/Components/BarList.vue';
 import EmptyState from '@/Components/EmptyState.vue';
@@ -28,22 +28,28 @@ const props = defineProps({
     topProducts: { type: Array, default: () => [] },
     retention: { type: Object, default: () => ({}) },
     freshness: { type: Object, default: () => ({}) },
+    // Cómo agrupó el servidor el top: 'product' o 'category'. Es la fuente de
+    // verdad; la pantalla no puede deducirlo del query string.
+    groupedBy: { type: String, default: 'category' },
 });
 
 const currency = computed(() => props.tenant.currency);
 
-const page = usePage();
-
-// `by` no viaja en las props, así que lo leemos de la URL que Inertia ya mantiene
-// sincronizada. Usar page.url en vez de window.location hace que el toggle siga
-// reflejando el estado real después de un back/forward del navegador.
-const currentQuery = computed(() => {
-    const [, queryString = ''] = page.url.split('?');
-
-    return Object.fromEntries(new URLSearchParams(queryString));
-});
-
-const by = computed(() => (currentQuery.value.by === 'category' ? 'category' : 'product'));
+/*
+ * El agrupamiento se lee de la prop que manda el servidor, no del query string.
+ *
+ * Antes se deducía de la URL asumiendo 'product' cuando no había parámetro,
+ * pero el controlador hace lo contrario: sin `by` agrupa por CATEGORÍA. Al
+ * entrar sin query string el título decía "Top productos" y el botón "Producto"
+ * quedaba resaltado sobre datos de categorías. Y no había forma de salir:
+ * clickear "Producto" no hacía nada porque el estado local ya decía 'product',
+ * así que había que pasar por "Categoría" y volver.
+ *
+ * Leyendo `groupedBy` la pantalla dice siempre lo que el servidor efectivamente
+ * agrupó, y el back/forward del navegador sigue funcionando porque Inertia
+ * vuelve a entregar las props de esa entrada del historial.
+ */
+const by = computed(() => (props.groupedBy === 'product' ? 'product' : 'category'));
 
 const from = ref(props.range.from);
 const to = ref(props.range.to);
