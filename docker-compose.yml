@@ -226,7 +226,7 @@ services:
       dockerfile: docker/php/Dockerfile
       target: runtime
     working_dir: /var/www/html
-    environment:
+    environment: &emitter-env
       APP_ENV: local
       APP_DEBUG: "false"
       APP_KEY: base64:UD48wtZF1tpAdZNMKU1eOGINmuDhB1NzIVSzjEXfFe0=
@@ -248,6 +248,49 @@ services:
     depends_on:
       nginx:
         condition: service_started
+
+  # ── Carga inicial del dataset ────────────────────────────────────
+  # Este servicio es la diferencia entre levantar el sistema y poder MIRARLO.
+  # El seed siembra tenants, usuarios y claves, pero deliberadamente no crea
+  # una sola venta: las ventas entran únicamente por la API. Sin este
+  # servicio, `docker compose up` dejaba un dashboard vacío hasta que alguien
+  # leyera la sección 2 del README y corriera el emisor a mano.
+  #
+  # No debilita la regla del enunciado, la ejercita: usa el MISMO emisor, con
+  # una API key y sin credenciales de base. Que la carga inicial del producto
+  # entre por su propia API pública es la demostración más fuerte de que la
+  # API es el único punto de entrada.
+  #
+  # Corre una vez y termina. Volver a hacer `up` lo vuelve a ejecutar y no
+  # duplica nada: las claves de idempotencia son deterministas, así que el
+  # servidor reconoce los lotes como reenvíos.
+  dataset:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: runtime
+    working_dir: /var/www/html
+    environment: *emitter-env
+    depends_on:
+      nginx:
+        condition: service_started
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        echo "Esperando a que la API responda..."
+        until curl -sf -o /dev/null http://nginx/login; do sleep 2; done
+
+        # Casa Luna espera a que sus lotes terminen porque el flujo diario de
+        # abajo actualiza esas mismas órdenes. Los otros dos no bloquean a
+        # nadie, así que se envían y la ingesta los procesa por detrás.
+        php artisan d4s:emit --tenant=luna  --orders=2500
+        php artisan d4s:emit --tenant=luna  --mode=daily --orders=400
+        php artisan d4s:emit --tenant=andes --orders=6000 --no-wait
+        php artisan d4s:emit --tenant=mega  --orders=6000 --no-wait
+
+        echo "Dataset cargado. El dashboard ya tiene datos que mirar."
 
   # ── Suite de tests ───────────────────────────────────────────────
   # Corre contra PostgreSQL de verdad, en bases separadas de las de
