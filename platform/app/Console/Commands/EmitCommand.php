@@ -274,7 +274,19 @@ class EmitCommand extends Command
             ));
 
             if ($pendientes !== []) {
-                usleep(500_000);
+                /*
+                 * La pausa crece con la cantidad de lotes pendientes, y no es
+                 * cosmético: cada vuelta consulta UNA vez por lote, así que con
+                 * una pausa fija de medio segundo seis lotes producían doce
+                 * peticiones por segundo contra un límite de consulta de 120
+                 * por minuto. El emisor se cortaba solo con un 429 —
+                 * justamente el comando que el README ofrece para cargar el
+                 * dataset— y el mensaje culpaba a la API en vez de a la espera.
+                 *
+                 * Un segundo por lote pendiente mantiene el ritmo en una
+                 * petición por segundo, sesenta por minuto, la mitad del techo.
+                 */
+                sleep(count($pendientes));
             }
         }
 

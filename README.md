@@ -15,7 +15,7 @@ Todos los datos de este README y de sus capturas son sintéticos.</sub>
 
 | Si querés… | Andá a |
 |---|---|
-| correrlo en dos minutos | [1 · Cómo levantarlo](#1-cómo-levantarlo) |
+| levantarlo con datos, con un comando | [1 · Cómo levantarlo](#1-cómo-levantarlo) |
 | saber qué **no** está y por qué | [4 · Limitaciones conocidas](#4-limitaciones-conocidas) |
 | ver qué hace con los datos sucios | [5 · Cada tipo de suciedad](#5-qué-hace-el-sistema-con-cada-tipo-de-suciedad) |
 | verificar el aislamiento vos mismo | [8 · Aislamiento](#8-cómo-verificar-el-aislamiento-entre-tenants) |
@@ -25,7 +25,7 @@ Todos los datos de este README y de sus capturas son sintéticos.</sub>
 <summary>Índice completo</summary>
 
 1. [Cómo levantarlo](#1-cómo-levantarlo)
-2. [Cómo cargar el dataset](#2-cómo-cargar-el-dataset)
+2. [Cómo cargar más dataset](#2-cómo-cargar-más-dataset)
 3. [Credenciales](#3-credenciales)
 4. [Limitaciones conocidas](#4-limitaciones-conocidas)
 5. [Qué hace el sistema con cada tipo de suciedad](#5-qué-hace-el-sistema-con-cada-tipo-de-suciedad)
@@ -51,8 +51,27 @@ Composer, ni Node.
 docker compose up -d
 ```
 
-Eso es todo. El servicio `init` migra los tres planos de datos, siembra los
-tenants con sus credenciales y se apaga; el resto queda corriendo.
+Eso es todo, y **eso incluye los datos**. El servicio `init` migra los tres
+planos y siembra tenants, usuarios y claves; después el servicio `dataset`
+espera a que la API responda y le empuja unas 13.600 órdenes repartidas entre
+los tres tenants.
+
+**No hay un segundo comando que correr.** La carga sigue por detrás después de
+que la terminal vuelve, y las pantallas se van llenando solas: en un arranque
+en frío medido de punta a punta tardó unos diez minutos hasta quedar completa,
+con datos visibles bastante antes. Para seguirla:
+
+```bash
+docker compose logs -f dataset
+```
+
+La carga entra por la API pública con una API key, igual que lo haría el
+retailer. No es un atajo por debajo: es la misma regla del enunciado
+ejercitándose en el arranque del propio producto.
+
+Lo que queda cargado: **13.617 órdenes** (7.991 entre `luna` y `andes`, 5.626 en
+`mega`), 4.902 clientes y 920 registros rechazados, que son los que le dan
+conteos reales a la tabla de la [sección 5](#5-qué-hace-el-sistema-con-cada-tipo-de-suciedad).
 
 | Servicio | URL | Para qué |
 |---|---|---|
@@ -69,7 +88,11 @@ docker compose down -v && docker compose up -d  # empezar de cero, borrando todo
 
 ---
 
-## 2. Cómo cargar el dataset
+## 2. Cómo cargar más dataset
+
+El arranque ya carga un dataset de trabajo (sección 1). Esta sección es para
+cargar **más**, o para ejercitar los modos que el arranque no usa: el flujo
+diario, el envío que se corta a la mitad, o subir el volumen del tenant grande.
 
 El emisor corre en su propio contenedor y empuja los datos contra la API.
 **No tiene credenciales de base de datos**: mirá el servicio `emitter` en
@@ -314,7 +337,7 @@ individual a su trazabilidad.</sub>
 | 1 · Ingesta | API asíncrona: valida el sobre, persiste el lote crudo, encola y responde **202** con el identificador del lote | [§9](#9-la-api-contrato-y-consola) |
 | 1 · Normalización | Un stage testeado por cada tipo de suciedad | [§5](#5-qué-hace-el-sistema-con-cada-tipo-de-suciedad) |
 | 1 · Consulta | Clientes con búsqueda, detalle con historial, órdenes filtrables, y las cuatro métricas agregadas que alimentan la Parte 2 | [`docs/openapi.yaml`](docs/openapi.yaml) |
-| 1 · Emisor | Reproducible, con los dos modos que pide el enunciado | [§2](#2-cómo-cargar-el-dataset) |
+| 1 · Emisor | Reproducible, con los dos modos que pide el enunciado | [§2](#2-cómo-cargar-más-dataset) |
 | 1 · Agregados | La ingesta marca los días afectados y un trabajo recalcula sólo esos; `freshness` hace medible el desfasaje | [§7](#7-escala-lo-que-está-medido) |
 | 1 · Aislamiento | Row-Level Security con las dos estrategias conviviendo | [§8](#8-cómo-verificar-el-aislamiento-entre-tenants) |
 | 2 · Login | Por organización: slug del tenant, email y contraseña | [§3](#3-credenciales) |
@@ -392,7 +415,13 @@ fuera un registro es peor que no responder.
 
 ## 7. Escala: lo que está medido
 
-Volumen cargado hoy, contado contra el motor:
+**Una instalación nueva no arranca con estos números.** El servicio `dataset`
+carga unas 13.600 órdenes repartidas entre los tres tenants, que alcanzan para
+que todas las pantallas tengan qué mostrar en un par de minutos. La tabla de
+abajo es la instancia sobre la que se tomaron las mediciones de esta sección,
+cargada subiendo `--orders` en el emisor durante horas (sección 2). Se deja
+para que se vea contra qué volumen corren los planes de consulta, no para
+prometer lo que vas a encontrar al levantarlo.
 
 | Tenant | Órdenes | Clientes | Base |
 |---|---:|---:|---|
