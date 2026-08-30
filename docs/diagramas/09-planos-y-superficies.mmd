@@ -1,0 +1,27 @@
+%% Superficies HTTP y planos de datos. Fuente editable.
+%% El plano de control es unico y compartido porque, cuando llega un request con
+%% una API key, todavia no se sabe a que base ir: primero hay que resolver la key
+%% para averiguar el tenant. Si las keys vivieran dentro de la base del tenant,
+%% haria falta conocer el tenant para poder averiguar el tenant.
+flowchart TB
+    emisor["Emisor de datos<br/>Contenedor sin credenciales de base"]
+
+    subgraph superficies["Superficies HTTP"]
+        ingesta["API de ingesta · API key"]
+        consulta["API de consulta · API key"]
+        dashboard["Dashboard · sesión y rol"]
+    end
+
+    registro["PLANO DE CONTROL · d4s_system<br/>tenants · api_keys · users<br/>Único y compartido. El único lugar sin RLS."]
+
+    compartida[("PLANO DE DATOS · d4s_shared<br/>Row-Level Security forzado<br/>luna · andes")]
+    dedicada[("PLANO DE DATOS · d4s_tenant_mega<br/>Otra instancia de PostgreSQL<br/>mega")]
+
+    emisor -->|"POST /api/v1/ingest/orders"| ingesta
+
+    ingesta --> registro
+    consulta --> registro
+    dashboard --> registro
+
+    registro -->|"resuelve el tenant<br/>y su conexión"| compartida
+    registro -->|"resuelve el tenant<br/>y su conexión"| dedicada
