@@ -323,7 +323,7 @@ const tdClass = 'whitespace-nowrap px-4 py-2.5 text-sm text-ink-soft';
                                     class="field mt-1 block"
                                     :model-value="emailStatus"
                                     :options="EMAIL_STATUS_OPTIONS"
-                                    placeholder="Cualquiera"
+                                    placeholder="Todos"
                                     @update:model-value="(value) => setFilter('email_status', value)"
                                 />
                             </div>

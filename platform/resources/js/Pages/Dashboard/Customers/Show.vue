@@ -53,12 +53,69 @@ function toggle(orderId) {
     expanded.value = next;
 }
 
+/*
+ * El historial se pagina en el cliente. El servidor ya manda hasta 200 órdenes
+ * en la misma respuesta, así que pedirle otra vuelta al backend para pasar de
+ * página sería un viaje de red por datos que ya están acá.
+ *
+ * Y hay una razón más fuerte que el scroll: "Expandir todo" sobre 200 órdenes
+ * montaba 200 tablas de renglones de una sola vez. Acotado a una página, el
+ * botón vuelve a ser barato.
+ */
+const ORDERS_PER_PAGE = 10;
+
+const orderPage = ref(1);
+
+const pageCount = computed(() =>
+    Math.max(1, Math.ceil(props.orders.length / ORDERS_PER_PAGE)),
+);
+
+const pagedOrders = computed(() => {
+    const start = (orderPage.value - 1) * ORDERS_PER_PAGE;
+
+    return props.orders.slice(start, start + ORDERS_PER_PAGE);
+});
+
+// Rango humano: "1–10 de 47", no "página 1 de 5".
+const pageRange = computed(() => {
+    if (props.orders.length === 0) {
+        return null;
+    }
+
+    const start = (orderPage.value - 1) * ORDERS_PER_PAGE + 1;
+    const end = Math.min(start + ORDERS_PER_PAGE - 1, props.orders.length);
+
+    return `${formatNumber(start)}–${formatNumber(end)} de ${formatNumber(props.orders.length)}`;
+});
+
+function goToPage(page) {
+    orderPage.value = Math.min(Math.max(1, page), pageCount.value);
+}
+
+/*
+ * El servidor corta en 200 órdenes. Cuando el cliente tiene más, decirlo es
+ * obligatorio: si no, esta lista contradice al contador de arriba, que sí trae
+ * el total real, y el usuario no sabe a cuál creerle.
+ */
+const isTruncated = computed(
+    () => (metrics.value.orders_count ?? 0) > props.orders.length,
+);
+
+// Expandir/colapsar aplica sólo a lo que está a la vista.
 const allExpanded = computed(
-    () => props.orders.length > 0 && expanded.value.size === props.orders.length,
+    () =>
+        pagedOrders.value.length > 0 &&
+        pagedOrders.value.every((order) => expanded.value.has(order.id)),
 );
 
 function toggleAll() {
-    expanded.value = allExpanded.value ? new Set() : new Set(props.orders.map((order) => order.id));
+    const next = new Set(expanded.value);
+
+    pagedOrders.value.forEach((order) => {
+        allExpanded.value ? next.delete(order.id) : next.add(order.id);
+    });
+
+    expanded.value = next;
 }
 
 /**
@@ -245,7 +302,13 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                                 Historial de órdenes
                             </h3>
                             <p class="text-xs text-ink-muted">
-                                {{ formatNumber(orders.length) }} órdenes ·
+                                <template v-if="isTruncated">
+                                    últimas {{ formatNumber(orders.length) }} de
+                                    {{ formatNumber(metrics.orders_count) }} órdenes ·
+                                </template>
+                                <template v-else>
+                                    {{ formatNumber(orders.length) }} órdenes ·
+                                </template>
                                 primera {{ formatDate(metrics.first_order_at, { timeZone: tenant.timezone }) }} ·
                                 última {{ formatDate(metrics.last_order_at, { timeZone: tenant.timezone }) }}
                             </p>
@@ -262,7 +325,7 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                     </div>
 
                     <div v-if="orders.length" class="divide-y divide-line">
-                        <div v-for="order in orders" :key="order.id">
+                        <div v-for="order in pagedOrders" :key="order.id">
                             <!--
                                 Dos acciones distintas en la misma fila, y por eso dos controles:
                                 el chevron abre los renglones sin salir de la ficha, y la fila
@@ -414,7 +477,49 @@ const ddClass = 'mt-0.5 text-sm text-ink';
                         </div>
                     </div>
 
-                    <div v-else class="p-6">
+                    <!--
+                        Paginación del historial. `aria-live` anuncia el nuevo rango a
+                        quien usa lector de pantalla: sin eso, cambiar de página no
+                        produce ninguna señal audible.
+                    -->
+                    <div
+                        v-if="orders.length && pageCount > 1"
+                        class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3"
+                    >
+                        <p class="text-xs text-ink-muted" aria-live="polite">
+                            {{ pageRange }} órdenes
+                            <template v-if="isTruncated">
+                                · el detalle llega hasta las
+                                {{ formatNumber(orders.length) }} más recientes
+                            </template>
+                        </p>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 text-xs font-medium text-ink-soft enabled:hover:bg-raised disabled:bg-raised disabled:text-ink-muted"
+                                :disabled="orderPage === 1"
+                                @click="goToPage(orderPage - 1)"
+                            >
+                                ← Anterior
+                            </button>
+
+                            <span class="text-xs tabular-nums text-ink-muted">
+                                {{ formatNumber(orderPage) }} / {{ formatNumber(pageCount) }}
+                            </span>
+
+                            <button
+                                type="button"
+                                class="focus-ring rounded-pill border border-line-strong px-3 py-1.5 text-xs font-medium text-ink-soft enabled:hover:bg-raised disabled:bg-raised disabled:text-ink-muted"
+                                :disabled="orderPage === pageCount"
+                                @click="goToPage(orderPage + 1)"
+                            >
+                                Siguiente →
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-else-if="!orders.length" class="p-6">
                         <EmptyState
                             title="Sin órdenes"
                             description="Este cliente todavía no registró ninguna orden en el período importado."
